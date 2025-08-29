@@ -1,0 +1,35 @@
+name: CD - Build & Push to ECR
+
+on:
+  push:
+    branches: [ master ]   
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cat_dog_app   
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
+          | docker login --username AWS --password-stdin 823999504399.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+
+      - name: Build, Tag, and Push Docker image
+        run: |
+          IMAGE_URI=823999504399.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/multilabel-worker:latest
+          echo "Building and pushing $IMAGE_URI"
+          docker build -t $IMAGE_URI -f Dockerfile .
+          docker push $IMAGE_URI
