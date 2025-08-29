@@ -1,0 +1,21 @@
+{
+    "family": "cat-dog-task",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "512",
+    "memory": "1024",
+    "executionRoleArn": "arn:aws:iam::823999504399:role/ecsTaskExecutionRoleMultilabel",
+    "taskRoleArn": "arn:aws:iam::823999504399:role/ecsTaskRoleMultilabel",
+    "containerDefinitions": [
+      {
+        "name": "app",
+        "image": "823999504399.dkr.ecr.us-east-1.amazonaws.com/multilabel-worker:latest",
+        "portMappings": [{ "containerPort": 8000, "protocol": "tcp" }],
+        "environment": [
+          { "name": "PORT", "value": "8000" }
+        ],
+        "essential": true
+      }
+    ]
+  }
+  

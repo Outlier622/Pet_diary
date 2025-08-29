@@ -1,0 +1,37 @@
+name: CD - Deploy to ECS (Fargate)
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  deploy-ecs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cat_dog_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      
+      - name: Render task definition with latest image
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: infra/ecs-task-def.json
+          container-name: app
+          image: 823999504399.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/multilabel-worker:latest
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: cat_dog_service 
+          cluster: cat_dog  
+          wait-for-service-stability: true
