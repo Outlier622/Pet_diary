@@ -19,13 +19,12 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 def extract_dominant_color(img_path):
     img = Image.open(img_path).convert('RGB')
-    colors = img.getcolors(img.size[0] * img.size[1])  # 获取所有颜色及其数量
-    dominant = max(colors, key=lambda tup: tup[0])    # 找出数量最多的颜色
+    colors = img.getcolors(img.size[0] * img.size[1])  
+    dominant = max(colors, key=lambda tup: tup[0])    
     r, g, b = dominant[1]
     return rgb_to_color_name(r, g, b)
 
 def rgb_to_color_name(r, g, b):
-    # 简化示例，用近似判断
     if r > 200 and g > 200 and b > 200:
         return "White"
     elif r < 50 and g < 50 and b < 50:
@@ -39,7 +38,6 @@ def rgb_to_color_name(r, g, b):
     else:
         return f"RGB({r},{g},{b})"
 
-# 初始化数据库
 def init_db():
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -69,19 +67,16 @@ def classify():
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
-    # 猫狗识别
     animal, confidence = predict_single_image(filepath)
     if animal is None:
         return jsonify({'error': 'Failed to analyze image'}), 500
 
-    # 品种预测（仅对狗调用）
     breed, breed_conf = ("Unknown", 0)
     if animal.lower() == "dog":
         breed, breed_conf = predict_dog_breed(filepath)
     elif animal.lower() == "cat":
         breed, breed_conf = predict_cat_breed(filepath)
 
-    # 颜色提取
     color = extract_dominant_color(filepath)
 
     result = {
@@ -91,7 +86,6 @@ def classify():
         'confidence': float(round(confidence * 100, 2))
     }
 
-    # 写入数据库
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('''
@@ -107,7 +101,7 @@ def classify():
 
 @app.route('/records', methods=['GET'])
 def records():
-    import struct  # 用于解码 bytes -> float
+    import struct  
     
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
@@ -150,7 +144,6 @@ def breed_classification():
 
     animal, _ = predict_single_image(filepath)
 
-    # 根据类型选择品种识别模型
     if animal.lower() == 'dog':
         breed, confidence = predict_dog_breed(filepath)
     elif animal.lower() == 'cat':
