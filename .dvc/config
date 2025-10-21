@@ -1,0 +1,5 @@
+[core]
+
+[remote "s3_storage"]
+    url = s3://outlier622-pet-classifier-models/dog_cat_category/models
+    default = true
