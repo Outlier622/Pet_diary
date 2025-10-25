@@ -49,7 +49,6 @@ This project is a deep learning-based system for identifying cat/dog breeds from
 - Animal dataset labeling tools
 - Full-stack AI project showcasing model training, inference, and API integration
 
----
 
 ### 🧩 Distributed Inference Mode
 This project can run in a **distributed setup** where the REST API acts as a lightweight **gateway**, dispatching image classification requests to multiple **stateless model workers** (each hosting a MobileNetV2 or other trained model).  
