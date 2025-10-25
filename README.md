@@ -1,4 +1,4 @@
-## Project: Cat/Dog Breed Identifier
+## Personal Project: Cat/Dog Breed Identifier
 
 This project is a deep learning-based system for identifying cat/dog breeds from images. It combines a fine-tuned MobileNetV2 classification model, a Flask backend API, and a simple front-end interface (Flutter or web). Users can upload a cat/dog image to receive its predicted breed, color, and confidence score.
 
