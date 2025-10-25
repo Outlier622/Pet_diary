@@ -50,7 +50,7 @@ This project is a deep learning-based system for identifying cat/dog breeds from
 - Full-stack AI project showcasing model training, inference, and API integration
 
 
-### 🧩 Distributed Inference Mode
+### Distributed Inference Mode
 This project can run in a **distributed setup** where the REST API acts as a lightweight **gateway**, dispatching image classification requests to multiple **stateless model workers** (each hosting a MobileNetV2 or other trained model).  
 Each worker runs independently and can be scaled horizontally on **AWS ECS or Docker Compose**, allowing concurrent inference across replicas.  
 The gateway aggregates predictions and provides unified health and metrics endpoints.  
