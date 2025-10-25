@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import sqlite3
 import os
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 from predict_image import predict_single_image
@@ -8,19 +9,28 @@ from PIL import Image
 from predict_breed import predict_dog_breed
 from predict_cat_breed import predict_cat_breed
 
+
+load_dotenv()  
+
+APP_VERSION = os.getenv("APP_VERSION", "dev")
+MODEL_REF   = os.getenv("MODEL_REF", "unknown") 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")    
+
+START_TS = time.time()      
+MODEL_LOADED = False         
+
 app = Flask(__name__)
+
+
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 DB_FILE = 'cat_dog.db'
 
-load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 def extract_dominant_color(img_path):
     img = Image.open(img_path).convert('RGB')
-    colors = img.getcolors(img.size[0] * img.size[1])  
-    dominant = max(colors, key=lambda tup: tup[0])    
+    colors = img.getcolors(img.size[0] * img.size[1]) 
+    dominant = max(colors, key=lambda tup: tup[0])     
     r, g, b = dominant[1]
     return rgb_to_color_name(r, g, b)
 
@@ -54,11 +64,43 @@ def init_db():
         ''')
         conn.commit()
 
-
 init_db()
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    uptime = time.time() - START_TS
+    code = 200 if MODEL_LOADED else 503
+    return jsonify({
+        "status": "ok" if code == 200 else "starting",
+        "version": APP_VERSION,
+        "model_ref": MODEL_REF,
+        "model_loaded": bool(MODEL_LOADED),
+        "uptime_seconds": round(uptime, 2)
+    }), code
+
+@app.route("/live", methods=["GET"])
+def live():
+    return jsonify({
+        "status": "alive",
+        "version": APP_VERSION,
+        "uptime_seconds": round(time.time() - START_TS, 2)
+    }), 200
+
+@app.route("/ready", methods=["GET"])
+def ready():
+    code = 200 if MODEL_LOADED else 503
+    return jsonify({
+        "status": "ready" if code == 200 else "not-ready",
+        "model_ref": MODEL_REF,
+        "model_loaded": bool(MODEL_LOADED)
+    }), code
+
 
 @app.route('/classify', methods=['POST'])
 def classify():
+    global MODEL_LOADED
+
     if 'image' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
 
@@ -70,6 +112,8 @@ def classify():
     animal, confidence = predict_single_image(filepath)
     if animal is None:
         return jsonify({'error': 'Failed to analyze image'}), 500
+
+    MODEL_LOADED = True
 
     breed, breed_conf = ("Unknown", 0)
     if animal.lower() == "dog":
@@ -97,12 +141,10 @@ def classify():
     return jsonify(result)
 
 
-
-
 @app.route('/records', methods=['GET'])
 def records():
-    import struct  
-    
+    import struct
+
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
         c.execute('SELECT animal, breed, color, confidence FROM records ORDER BY id DESC')
@@ -129,11 +171,13 @@ def records():
                 'confidence': round(confidence, 2)
             })
 
-
     return jsonify(result)
+
 
 @app.route('/breed', methods=['POST'])
 def breed_classification():
+    global MODEL_LOADED
+
     if 'image' not in request.files:
         return jsonify({'error': 'No image uploaded'}), 400
 
@@ -143,6 +187,9 @@ def breed_classification():
     file.save(filepath)
 
     animal, _ = predict_single_image(filepath)
+
+    if animal is not None:
+        MODEL_LOADED = True
 
     if animal.lower() == 'dog':
         breed, confidence = predict_dog_breed(filepath)
@@ -156,9 +203,6 @@ def breed_classification():
         'breed': breed,
         'confidence': round(confidence * 100, 2)
     })
-
-
-
 
 
 if __name__ == '__main__':

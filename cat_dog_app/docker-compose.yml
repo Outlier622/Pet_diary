@@ -1,11 +1,9 @@
-version: "3.9"
-
 services:
   api:
     build:
-      context: .              
+      context: .
       dockerfile: infra/Dockerfile
-    image: dog-cat-api:latest 
+    image: dog-cat-api:latest
     container_name: dog-cat-api
     environment:
       FLASK_ENV: production
@@ -14,7 +12,15 @@ services:
       DB_PATH: /app/data/results.sqlite
     ports:
       - "5000:5000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     volumes:
+      - ./data:/app/data              
+      - ./cat_dog_app/models:/app/cat_dog_app/models  
     restart: unless-stopped
     command: >
       sh -c "python -u cat_dog_app/app.py"
