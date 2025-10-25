@@ -1,6 +1,6 @@
 ## Project: Cat/Dog Breed Identifier
 
-This project is a deep learning-based system for identifying cat/dog breeds from images. It combines a fine-tuned MobileNetV2 classification model, a Flask backend API, and a simple front-end interface (Flutter or web). Users can upload a cat image to receive its predicted breed, color, and confidence score.
+This project is a deep learning-based system for identifying cat/dog breeds from images. It combines a fine-tuned MobileNetV2 classification model, a Flask backend API, and a simple front-end interface (Flutter or web). Users can upload a cat/dog image to receive its predicted breed, color, and confidence score.
 
 ### Features
 
@@ -8,11 +8,11 @@ This project is a deep learning-based system for identifying cat/dog breeds from
   Identifies the breed of a cat/dog using a deep learning model based on MobileNetV2, fine-tuned on a labeled dataset of over 30,000 images.
 
 - **Fur Color Detection**  
-  Automatically extracts the dominant color from the cat image (e.g. white, gray, black, orange) using RGB heuristics.
+  Automatically extracts the dominant color from the cat/dog image (e.g. white, gray, black, orange) using RGB heuristics.
 
 - **Full-Stack Integration (Flutter + Flask)**  
   A mobile-friendly front-end built with **Flutter** allows users to:
-  - Capture or upload cat images
+  - Capture or upload cat/dog images
   - See prediction results (breed, color, confidence)
   - View historical records in a local results table
 
@@ -65,7 +65,7 @@ This project is a deep learning-based system for identifying cat/dog breeds from
 2. **Oxford-IIIT Pet Dataset**
    - Source: [University of Oxford - VGG Group](https://www.robots.ox.ac.uk/~vgg/data/pets/)
    - Purpose: Train a cat breed classifier (only used 12 cat breeds out of 37 total breeds).
-   - Images Used: ~7,360 
+   - Images Used: ~2,500 
 
 3. **GanoCat Dataset**
    - Source: Third-party curated dataset ([not publicly hosted](https://www.kaggle.com/datasets/shawngano/gano-cat-breed-image-collection?utm_source=chatgpt.com))
