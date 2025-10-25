@@ -65,7 +65,7 @@ This project is a deep learning-based system for identifying cat/dog breeds from
 2. **Oxford-IIIT Pet Dataset**
    - Source: [University of Oxford - VGG Group](https://www.robots.ox.ac.uk/~vgg/data/pets/)
    - Purpose: Train a cat breed classifier (only used 12 cat breeds out of 37 total breeds).
-   - Images Used: ~2,400 
+   - Images Used: ~7,360 
 
 3. **GanoCat Dataset**
    - Source: Third-party curated dataset ([not publicly hosted](https://www.kaggle.com/datasets/shawngano/gano-cat-breed-image-collection?utm_source=chatgpt.com))
