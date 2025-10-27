@@ -8,10 +8,16 @@ from predict_image import predict_single_image
 from PIL import Image
 from predict_breed import predict_dog_breed
 from predict_cat_breed import predict_cat_breed
-
+from flask import Flask, jsonify
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from flask import Response
+from functools import wraps
+from dotenv import load_dotenv
 
 load_dotenv()  
 
+APP_TOKEN = os.getenv("APP_TOKEN", "dev-token")
+ALLOWED_ORIGINS = set((os.getenv("ALLOWED_ORIGINS","")).split(",")) if os.getenv("ALLOWED_ORIGINS") else set()
 APP_VERSION = os.getenv("APP_VERSION", "dev")
 MODEL_REF   = os.getenv("MODEL_REF", "unknown") 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")    
@@ -20,6 +26,8 @@ START_TS = time.time()
 MODEL_LOADED = False         
 
 app = Flask(__name__)
+REQS = Counter("api_requests_total", "Total API requests", ["method", "endpoint", "code"])
+LAT = Histogram("api_latency_seconds", "Request latency", ["method", "endpoint"])
 
 
 UPLOAD_FOLDER = 'uploads'
@@ -67,6 +75,37 @@ def init_db():
 init_db()
 
 
+@app.route("/admin/ping")
+@require_token
+def admin_ping():
+    return jsonify({"ok": True})
+
+def require_token(f):
+    @wraps(f)
+    def _wrap(*args, **kwargs):
+        token = request.headers.get("X-API-Token")
+        if token != APP_TOKEN:
+            return jsonify({"error": "unauthorized"}), 401
+        return f(*args, **kwargs)
+    return _wrap
+
+@app.before_request
+def _timer_start():
+    request._ts = time.time()
+
+@app.after_request
+def _after(resp):
+    try:
+        dur = time.time() - getattr(request, "_ts", time.time())
+        LAT.labels(request.method, request.path).observe(dur)
+        REQS.labels(request.method, request.path, resp.status_code).inc()
+    finally:
+        return resp
+
+@app.route("/metrics")
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+
 @app.route("/health", methods=["GET"])
 def health():
     uptime = time.time() - START_TS
@@ -78,6 +117,14 @@ def health():
         "model_loaded": bool(MODEL_LOADED),
         "uptime_seconds": round(uptime, 2)
     }), code
+
+@app.route("/healthz", methods=["GET"])
+def healthz():
+    """
+    Simple health check endpoint.
+    Used by deploy.sh and ECS/Compose probes.
+    """
+    return jsonify({"status": "ok", "message": "healthy"}), 200
 
 @app.route("/live", methods=["GET"])
 def live():
