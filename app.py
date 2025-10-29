@@ -1,96 +1,127 @@
-from flask import Flask, request, jsonify
-import sqlite3
-import os
-import time
+import os, time, uuid, logging, sqlite3, struct
 from datetime import datetime
+from functools import wraps
+
+from flask import Flask, request, jsonify, Response
+from werkzeug.exceptions import HTTPException
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
-from predict_image import predict_single_image
 from PIL import Image
+
+# --- your existing inference imports ---
+from predict_image import predict_single_image
 from predict_breed import predict_dog_breed
 from predict_cat_breed import predict_cat_breed
-from flask import Flask, jsonify
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from flask import Response
-from functools import wraps
-from dotenv import load_dotenv
+# ---------------------------------------
 
-load_dotenv()  
+load_dotenv()
 
-APP_TOKEN = os.getenv("APP_TOKEN", "dev-token")
-ALLOWED_ORIGINS = set((os.getenv("ALLOWED_ORIGINS","")).split(",")) if os.getenv("ALLOWED_ORIGINS") else set()
-APP_VERSION = os.getenv("APP_VERSION", "dev")
-MODEL_REF   = os.getenv("MODEL_REF", "unknown") 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")    
+# ====== Configs / Security ======
+APP_VERSION    = os.getenv("APP_VERSION", "dev")
+MODEL_REF      = os.getenv("MODEL_REF", "unknown")
+APP_TOKEN      = os.getenv("APP_TOKEN", "dev-admin")    
+PUBLIC_API_KEY = os.getenv("PUBLIC_API_KEY", "dev-key") 
+API_KEY_REQUIRED = os.getenv("API_KEY_REQUIRED", "true").lower() == "true"
 
-START_TS = time.time()      
-MODEL_LOADED = False         
+ALLOWED_TYPES = {"image/jpeg", "image/png"}
+MAX_SIZE = 5 * 1024 * 1024  # 5MB upload cap
 
-app = Flask(__name__)
-REQS = Counter("api_requests_total", "Total API requests", ["method", "endpoint", "code"])
-LAT = Histogram("api_latency_seconds", "Request latency", ["method", "endpoint"])
+UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")
+DB_FILE       = os.getenv("DB_FILE", "cat_dog.db")
+WORKERS_URL   = os.getenv("WORKERS_URL") 
 
-
-UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-DB_FILE = 'cat_dog.db'
 
+# ====== App / Metrics ======
+app = Flask(__name__)
+limiter = Limiter(get_remote_address, app=app, default_limits=["100/minute"])
+
+REQS = Counter("http_requests_total", "Total HTTP requests", ["method", "endpoint", "code"])
+LAT  = Histogram("http_request_seconds", "Request latency seconds", ["method", "endpoint"])
+Q_LEN = Gauge("inference_queue_length", "queue length")
+MODEL_READY = Gauge("model_loaded", "model loaded (0/1)")
+UPTIME = Gauge("process_uptime_seconds", "uptime seconds")
+
+START_TS = time.time()
+MODEL_LOADED = False
+
+# ====== Utilities ======
+def _json(code, obj):
+    REQS.labels(request.method, request.path, str(code)).inc()
+    return jsonify(obj), code
+
+def _bad(code, msg):
+    return _json(code, {"code": code, "error": msg})
+
+def require_admin(f):
+    @wraps(f)
+    def _wrap(*args, **kwargs):
+        token = request.headers.get("X-Admin-Token", "")
+        if token != APP_TOKEN:
+            return _bad(401, "unauthorized")
+        return f(*args, **kwargs)
+    return _wrap
+
+def require_public_key(f):
+    @wraps(f)
+    def _wrap(*args, **kwargs):
+        if API_KEY_REQUIRED and request.path not in ("/metrics","/livez","/readyz","/healthz"):
+            k = request.headers.get("X-API-Key", "")
+            if k != PUBLIC_API_KEY:
+                return _bad(401, "unauthorized")
+        return f(*args, **kwargs)
+    return _wrap
+
+def _file_guards(fs):
+    if "image" not in fs:
+        return 400, "no file field 'image'"
+    f = fs["image"]
+    if not f or not getattr(f, "mimetype", None):
+        return 400, "bad file"
+    if f.mimetype not in ALLOWED_TYPES:
+        return 400, "bad content-type"
+    f.seek(0, os.SEEK_END)
+    sz = f.tell()
+    f.seek(0)
+    if sz > MAX_SIZE:
+        return 400, "file too large"
+    return 0, "ok"
 
 def extract_dominant_color(img_path):
     img = Image.open(img_path).convert('RGB')
-    colors = img.getcolors(img.size[0] * img.size[1]) 
-    dominant = max(colors, key=lambda tup: tup[0])     
-    r, g, b = dominant[1]
-    return rgb_to_color_name(r, g, b)
-
-def rgb_to_color_name(r, g, b):
-    if r > 200 and g > 200 and b > 200:
-        return "White"
-    elif r < 50 and g < 50 and b < 50:
-        return "Black"
-    elif r > g and r > b:
-        return "Red-ish"
-    elif g > r and g > b:
-        return "Green-ish"
-    elif b > r and b > g:
-        return "Blue-ish"
-    else:
-        return f"RGB({r},{g},{b})"
+    colors = img.getcolors(img.size[0] * img.size[1])
+    dominant = max(colors, key=lambda tup: tup[0])
+    r,g,b = dominant[1]
+    if r > 200 and g > 200 and b > 200: return "White"
+    if r < 50 and g < 50 and b < 50:    return "Black"
+    if r > g and r > b:                 return "Red-ish"
+    if g > r and g > b:                 return "Green-ish"
+    if b > r and b > g:                 return "Blue-ish"
+    return f"RGB({r},{g},{b})"
 
 def init_db():
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                filename TEXT,
-                animal TEXT,
-                breed TEXT,
-                color TEXT,
-                confidence REAL,
-                timestamp TEXT
-            )
-        ''')
+        c.execute("""
+        CREATE TABLE IF NOT EXISTS records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT,
+            animal TEXT,
+            breed TEXT,
+            color TEXT,
+            confidence REAL,
+            timestamp TEXT
+        )
+        """)
         conn.commit()
 
 init_db()
 
-
-@app.route("/admin/ping")
-@require_token
-def admin_ping():
-    return jsonify({"ok": True})
-
-def require_token(f):
-    @wraps(f)
-    def _wrap(*args, **kwargs):
-        token = request.headers.get("X-API-Token")
-        if token != APP_TOKEN:
-            return jsonify({"error": "unauthorized"}), 401
-        return f(*args, **kwargs)
-    return _wrap
-
+# ====== Hooks ======
 @app.before_request
-def _timer_start():
+def _before():
     request._ts = time.time()
 
 @app.after_request
@@ -99,158 +130,135 @@ def _after(resp):
         dur = time.time() - getattr(request, "_ts", time.time())
         LAT.labels(request.method, request.path).observe(dur)
         REQS.labels(request.method, request.path, resp.status_code).inc()
+        UPTIME.set(time.time() - START_TS)
+        MODEL_READY.set(1 if MODEL_LOADED else 0)
     finally:
         return resp
 
-@app.route("/metrics")
+# ====== Health / Metrics ======
+@app.get("/metrics")
 def metrics():
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
-@app.route("/health", methods=["GET"])
-def health():
-    uptime = time.time() - START_TS
-    code = 200 if MODEL_LOADED else 503
-    return jsonify({
-        "status": "ok" if code == 200 else "starting",
-        "version": APP_VERSION,
-        "model_ref": MODEL_REF,
-        "model_loaded": bool(MODEL_LOADED),
-        "uptime_seconds": round(uptime, 2)
-    }), code
+@app.get("/livez")
+def livez():
+    return _json(200, {"status":"alive","version":APP_VERSION})
 
-@app.route("/healthz", methods=["GET"])
+@app.get("/readyz")
+def readyz():
+    code = 200 if MODEL_LOADED else 503
+    return _json(code, {"ready": code==200, "model_ref": MODEL_REF})
+
+@app.get("/healthz")
 def healthz():
-    """
-    Simple health check endpoint.
-    Used by deploy.sh and ECS/Compose probes.
-    """
-    return jsonify({"status": "ok", "message": "healthy"}), 200
+    return _json(200, {"status":"ok"})
 
-@app.route("/live", methods=["GET"])
-def live():
-    return jsonify({
-        "status": "alive",
-        "version": APP_VERSION,
-        "uptime_seconds": round(time.time() - START_TS, 2)
-    }), 200
+# ====== Admin ======
+@app.get("/admin/ping")
+@require_admin
+def admin_ping():
+    return _json(200, {"ok": True})
 
-@app.route("/ready", methods=["GET"])
-def ready():
-    code = 200 if MODEL_LOADED else 503
-    return jsonify({
-        "status": "ready" if code == 200 else "not-ready",
-        "model_ref": MODEL_REF,
-        "model_loaded": bool(MODEL_LOADED)
-    }), code
-
-
-@app.route('/classify', methods=['POST'])
+# ====== Business APIs ======
+@app.post("/classify")
+@require_public_key
+@limiter.limit("10/second")
 def classify():
     global MODEL_LOADED
+    code, msg = _file_guards(request.files)
+    if code: return _bad(code, msg)
 
-    if 'image' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
+    f = request.files["image"]
+    filename = datetime.now().strftime('%Y%m%d%H%M%S') + '_' + f.filename
+    path = os.path.join(UPLOAD_FOLDER, filename)
+    f.save(path)
 
-    file = request.files['image']
-    filename = datetime.now().strftime('%Y%m%d%H%M%S') + '_' + file.filename
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
-
-    animal, confidence = predict_single_image(filepath)
-    if animal is None:
-        return jsonify({'error': 'Failed to analyze image'}), 500
-
+    
+    animal, conf = predict_single_image(path)
+    if not animal:
+        return _bad(500, "failed to analyze image")
     MODEL_LOADED = True
 
-    breed, breed_conf = ("Unknown", 0)
+    
+    breed, breed_conf = ("Unknown", 0.0)
     if animal.lower() == "dog":
-        breed, breed_conf = predict_dog_breed(filepath)
+        breed, breed_conf = predict_dog_breed(path)
     elif animal.lower() == "cat":
-        breed, breed_conf = predict_cat_breed(filepath)
+        breed, breed_conf = predict_cat_breed(path)
 
-    color = extract_dominant_color(filepath)
-
+    color = extract_dominant_color(path)
     result = {
-        'animal': animal,
-        'breed': breed,
-        'color': color,
-        'confidence': float(round(confidence * 100, 2))
+        "animal": animal,
+        "breed": breed,
+        "color": color,
+        "confidence": round(float(conf) * 100.0, 2)
     }
 
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute('''
-            INSERT INTO records (filename, animal, breed, color, confidence, timestamp)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (filename, animal, breed, color, float(result['confidence']), datetime.now().isoformat()))
+        c.execute("""
+        INSERT INTO records (filename, animal, breed, color, confidence, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, (filename, animal, breed, color, float(result["confidence"]), datetime.now().isoformat()))
         conn.commit()
 
-    return jsonify(result)
+    return _json(200, result)
 
-
-@app.route('/records', methods=['GET'])
+@app.get("/records")
+@require_public_key
 def records():
-    import struct
-
+    out = []
     with sqlite3.connect(DB_FILE) as conn:
         c = conn.cursor()
-        c.execute('SELECT animal, breed, color, confidence FROM records ORDER BY id DESC')
-        rows = c.fetchall()
-        result = []
-        for r in rows:
-            animal = r[0].decode() if isinstance(r[0], bytes) else r[0]
-            breed = r[1].decode() if isinstance(r[1], bytes) else r[1]
-            color = r[2].decode() if isinstance(r[2], bytes) else r[2]
-
-            confidence_raw = r[3]
-            if isinstance(confidence_raw, bytes):
-                try:
-                    confidence = struct.unpack('f', confidence_raw)[0]
-                except Exception:
-                    confidence = 0.0
+        c.execute("SELECT animal, breed, color, confidence FROM records ORDER BY id DESC")
+        for animal, breed, color, conf_raw in c.fetchall():
+            if isinstance(conf_raw, bytes):
+                try: conf = struct.unpack('f', conf_raw)[0]
+                except Exception: conf = 0.0
             else:
-                confidence = float(confidence_raw)
-
-            result.append({
-                'animal': animal,
-                'breed': breed,
-                'color': color,
-                'confidence': round(confidence, 2)
+                conf = float(conf_raw)
+            out.append({
+                "animal": animal.decode() if isinstance(animal, bytes) else animal,
+                "breed":  breed.decode()  if isinstance(breed,  bytes) else breed,
+                "color":  color.decode()  if isinstance(color,  bytes) else color,
+                "confidence": round(conf, 2)
             })
+    return _json(200, out)
 
-    return jsonify(result)
-
-
-@app.route('/breed', methods=['POST'])
+@app.post("/breed")
+@require_public_key
+@limiter.limit("10/second")
 def breed_classification():
     global MODEL_LOADED
+    code, msg = _file_guards(request.files)
+    if code: return _bad(code, msg)
 
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image uploaded'}), 400
+    f = request.files["image"]
+    filename = datetime.now().strftime('%Y%m%d%H%M%S') + '_' + f.filename
+    path = os.path.join(UPLOAD_FOLDER, filename)
+    f.save(path)
 
-    file = request.files['image']
-    filename = datetime.now().strftime('%Y%m%d%H%M%S') + '_' + file.filename
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
+    animal, _ = predict_single_image(path)
+    if animal: MODEL_LOADED = True
 
-    animal, _ = predict_single_image(filepath)
-
-    if animal is not None:
-        MODEL_LOADED = True
-
-    if animal.lower() == 'dog':
-        breed, confidence = predict_dog_breed(filepath)
-    elif animal.lower() == 'cat':
-        breed, confidence = predict_cat_breed(filepath)
+    if animal and animal.lower() == "dog":
+        breed, confidence = predict_dog_breed(path)
+    elif animal and animal.lower() == "cat":
+        breed, confidence = predict_cat_breed(path)
     else:
-        breed, confidence = "Unknown", 0
+        breed, confidence = "Unknown", 0.0
 
-    return jsonify({
-        'animal': animal,
-        'breed': breed,
-        'confidence': round(confidence * 100, 2)
+    return _json(200, {
+        "animal": animal,
+        "breed": breed,
+        "confidence": round(float(confidence) * 100.0, 2)
     })
 
+# ====== Error handler ======
+@app.errorhandler(Exception)
+def handle_err(e):
+    code = e.code if isinstance(e, HTTPException) else 500
+    return _bad(code, str(e))
 
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=True)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))

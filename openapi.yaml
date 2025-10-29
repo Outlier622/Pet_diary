@@ -1,0 +1,65 @@
+openapi: 3.1.0
+info:
+  title: Dog/Cat Classifier API
+  version: 1.0.0
+
+paths:
+  /classify:
+    post:
+      summary: Classify animal and breed
+      parameters:
+        - in: header
+          name: X-API-Key
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: ok
+        "400":
+          description: bad input
+        "401":
+          description: unauthorized
+        "429":
+          description: rate limited
+
+  /records:
+    get:
+      responses:
+        "200":
+          description: ok
+
+  /livez:
+    get:
+      responses:
+        "200":
+          description: ok
+
+  /readyz:
+    get:
+      responses:
+        "200":
+          description: ready
+        "503":
+          description: not ready
+
+  /metrics:
+    get:
+      responses:
+        "200":
+          description: prometheus text
