@@ -29,7 +29,7 @@ This project is a deep learning-based system for identifying cat/dog breeds from
 
 | Task                     | Dataset Source                      | Image Count | Classes | Model                    | Val Accuracy |
 |--------------------------|-------------------------------------|-------------|---------|--------------------------|--------------|
-| Cat vs Dog Classification| Kaggle Dogs vs. Cats                | 25,000      | 2       | MobileNetV2              | ~98%         |
+| Cat vs Dog Classification| Kaggle Dogs vs. Cats                | 25,000      | 2       | MobileNetV2              | ~97.1%       |
 | Cat Breed Identification | Gano Cat Breed Dataset (15 classes) | 5,625       | 15      | MobileNetV2 (fine-tuned) | ~98.9%       |
 | Dog Breed Identification | Stanford Dogs Dataset               | ~7,360      | 37      | MobileNetV2              | ~97.4%       |
 
