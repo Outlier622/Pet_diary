@@ -8,7 +8,8 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTEN
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
-from PIL import Image
+from PIL import Image, UnidentifiedImageError  # [SEC] add UnidentifiedImageError
+from werkzeug.utils import secure_filename      # [SEC] secure file names
 import psutil
 
 # --- inference imports ---
@@ -36,6 +37,7 @@ PUBLIC_API_KEY = os.getenv("PUBLIC_API_KEY", "dev-key")
 API_KEY_REQUIRED = os.getenv("API_KEY_REQUIRED", "true").lower() == "true"
 
 ALLOWED_TYPES = {"image/jpeg", "image/png"}
+ALLOWED_EXTS = {"jpg", "jpeg", "png"}  # [SEC] filename whitelist
 MAX_SIZE = 5 * 1024 * 1024  # 5MB
 
 UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")
@@ -47,7 +49,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ====== App ======
 app = Flask(__name__)
-limiter = Limiter(get_remote_address, app=app, default_limits=["100/minute"])
+# [SEC] hard request cap at Flask layer (multipart overhead ≈ +1MB)
+app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE + 1024 * 1024
+
+limiter = Limiter(get_remote_address, app=app, default_limits=["100/minute"])  # already present
 
 # ====== OpenTelemetry (init AFTER app is created) ======
 tp = TracerProvider()
@@ -98,20 +103,60 @@ def require_public_key(f):
         return f(*args, **kwargs)
     return _wrap
 
+def _extension_ok(filename: str) -> bool:
+    # [SEC] allow only specific safe extensions
+    if not filename:
+        return False
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    return ext in ALLOWED_EXTS
+
+def _verify_image_stream(file_storage) -> bool:
+    """
+    [SEC] Decode-check uploaded image stream to block disguised files.
+    Do not trust mimetype alone.
+    """
+    pos = file_storage.stream.tell()
+    try:
+        img = Image.open(file_storage.stream)
+        img.verify()  # validate structure
+        file_storage.stream.seek(pos)  # reset for subsequent save
+        return True
+    except (UnidentifiedImageError, OSError):
+        try:
+            file_storage.stream.seek(pos)
+        except Exception:
+            pass
+        return False
+
 def _file_guards(fs):
     if "image" not in fs:
         return 400, "no file field 'image'"
     f = fs["image"]
     if not f or not getattr(f, "mimetype", None):
         return 400, "bad file"
+    if not _extension_ok(f.filename):                 # [SEC]
+        return 400, "bad filename"
     if f.mimetype not in ALLOWED_TYPES:
         return 400, "bad content-type"
+    # size check
     f.seek(0, os.SEEK_END)
     sz = f.tell()
     f.seek(0)
     if sz > MAX_SIZE:
         return 400, "file too large"
+    # decode check
+    if not _verify_image_stream(f):                   # [SEC]
+        return 400, "corrupt or invalid image"
     return 0, "ok"
+
+def _secure_save_file(f):
+    """[SEC] save to randomized, sanitized filename; no user-controlled path."""
+    ext = f.filename.rsplit(".", 1)[-1].lower()
+    safe_name = secure_filename(f"{uuid.uuid4().hex}.{ext}")
+    path = os.path.join(UPLOAD_FOLDER, safe_name)
+    f.stream.seek(0)
+    f.save(path)
+    return safe_name, path
 
 def extract_dominant_color(img_path):
     img = Image.open(img_path).convert('RGB')
@@ -160,6 +205,11 @@ def _after(resp):
         MODEL_READY.set(1 if MODEL_LOADED else 0)
         CPU.set(psutil.Process().cpu_percent() / 100.0)
         MEM.set(psutil.Process().memory_info().rss)
+
+        # [SEC] add basic security headers for API responses
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("Cache-Control", "no-store")
 
         # structured access log (attach trace_id if present)
         span = trace.get_current_span()
@@ -211,9 +261,8 @@ def classify():
     if code: return _bad(code, msg)
 
     f = request.files["image"]
-    filename = datetime.now().strftime('%Y%m%d%H%M%S') + '_' + f.filename
-    path = os.path.join(UPLOAD_FOLDER, filename)
-    f.save(path)
+    # [SEC] secure randomized filename, no user-controlled paths
+    filename, path = _secure_save_file(f)
 
     animal, conf = predict_single_image(path)
     if not animal:
@@ -274,9 +323,7 @@ def breed_classification():
     if code: return _bad(code, msg)
 
     f = request.files["image"]
-    filename = datetime.now().strftime('%Y%m%d%H%M%S') + '_' + f.filename
-    path = os.path.join(UPLOAD_FOLDER, filename)
-    f.save(path)
+    filename, path = _secure_save_file(f)  # [SEC] same as /classify
 
     animal, _ = predict_single_image(path)
     if animal: MODEL_LOADED = True
@@ -311,7 +358,9 @@ def handle_err(e):
         "error_type": e.__class__.__name__,
         "error": str(e)[:500]
     }))
-    return _bad(code, str(e))
+    # [SEC] do not leak internal error details to clients
+    public_msg = "internal error" if code == 500 else "request error"
+    return _bad(code, public_msg)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
