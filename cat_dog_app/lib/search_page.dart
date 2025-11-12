@@ -19,7 +19,7 @@ class _SearchPageState extends State<SearchPage> {
 
   Future<void> _fetchRecords() async {
     try {
-      final uri = Uri.parse('http://192.168.1.110:5000/records');
+      final uri = Uri.parse('http://192.168.1.240:5000/records');
       final response = await http.get(uri);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List<dynamic>;

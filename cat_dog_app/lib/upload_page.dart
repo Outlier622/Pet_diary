@@ -10,36 +10,54 @@ class UploadPage extends StatefulWidget {
 }
 
 class _UploadPageState extends State<UploadPage> {
+  final _picker = ImagePicker();
   File? _image;
+  bool _busy = false;
 
-  Future<void> _pickImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.camera);
-    if (pickedFile != null) {
-      setState(() {
-        _image = File(pickedFile.path);
-      });
+  final TextEditingController _serverCtrl =
+      TextEditingController(text: 'http://192.168.137.1:5000');
+  final TextEditingController _apiKeyCtrl =
+      TextEditingController(text: '');
 
-      await _classifyImage(_image!);
-    }
+  Future<void> _pickAndUpload(ImageSource source) async {
+    final picked = await _picker.pickImage(source: source, imageQuality: 95); 
+    if (picked == null) return;
+
+    final file = File(picked.path);
+    setState(() => _image = file);
+
+    await _classifyImage(file);
   }
 
   Future<void> _classifyImage(File imageFile) async {
-    final uri = Uri.parse('http://192.168.1.110:5000/classify');
-    final request = http.MultipartRequest('POST', uri);
-    request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+    final base = _serverCtrl.text.trim().replaceAll(RegExp(r'/$'), '');
+    final uri = Uri.parse('$base/classify');
+
+    final req = http.MultipartRequest('POST', uri);
+    req.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+
+    final key = _apiKeyCtrl.text.trim();
+    if (key.isNotEmpty) {
+      req.headers['X-API-Key'] = key;
+    }
 
     try {
-      final response = await request.send();
-      if (response.statusCode == 200) {
-        final responseBody = await response.stream.bytesToString();
-        final result = jsonDecode(responseBody);
+      setState(() => _busy = true);
+      final resp = await req.send();
 
+      final body = await resp.stream.bytesToString();
+      if (resp.statusCode == 200) {
+        final result = jsonDecode(body) as Map<String, dynamic>;
         _showResultDialog(result);
       } else {
-        _showErrorDialog('Classification failed with status ${response.statusCode}');
+        _showErrorDialog(
+          'Upload failed: HTTP ${resp.statusCode}\n$body',
+        );
       }
     } catch (e) {
-      _showErrorDialog('Error occurred: $e');
+      _showErrorDialog('Network error: $e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -47,33 +65,26 @@ class _UploadPageState extends State<UploadPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Classification Result'),
+        title: const Text('Classification Result'),
         content: Text(_formatResult(result)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
         ],
       ),
     );
   }
 
-  String _formatResult(Map<String, dynamic> result) {
-    return result.entries.map((e) => '${e.key}: ${e.value}').join('\n');
-  }
+  String _formatResult(Map<String, dynamic> result) =>
+      result.entries.map((e) => '${e.key}: ${e.value}').join('\n');
 
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Error'),
+        title: const Text('Error'),
         content: Text(message),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
         ],
       ),
     );
@@ -81,23 +92,78 @@ class _UploadPageState extends State<UploadPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Upload Photo')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            ElevatedButton.icon(
-              onPressed: _pickImage,
-              icon: Icon(Icons.camera_alt),
-              label: Text('Capture Image'),
+    final imagePreview = _image != null
+        ? Image.file(_image!, height: 220, fit: BoxFit.cover)
+        : Container(
+            height: 220,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(8),
             ),
-            SizedBox(height: 10),
-            _image != null
-                ? Image.file(_image!, height: 200)
-                : Container(height: 200, color: Colors.grey[300]),
-          ],
-        ),
+            child: const Text('No Image Selected'),
+          );
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Upload Photo')),
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: ListView(
+              children: [
+                TextField(
+                  controller: _serverCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Server Base URL',
+                    hintText: 'http://<ip>:5000',
+                    prefixIcon: Icon(Icons.link),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _apiKeyCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'X-API-Key (optional)',
+                    prefixIcon: Icon(Icons.vpn_key),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: imagePreview,
+                ),
+                const SizedBox(height: 16),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _busy ? null : () => _pickAndUpload(ImageSource.camera),
+                        icon: const Icon(Icons.camera_alt),
+                        label: const Text('Capture & Upload'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : () => _pickAndUpload(ImageSource.gallery),
+                        icon: const Icon(Icons.photo),
+                        label: const Text('Pick & Upload'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (_busy)
+            Container(
+              color: Colors.black45,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+        ],
       ),
     );
   }

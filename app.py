@@ -8,9 +8,15 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTEN
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
-from PIL import Image, UnidentifiedImageError  # [SEC] add UnidentifiedImageError
-from werkzeug.utils import secure_filename      # [SEC] secure file names
+from PIL import Image, UnidentifiedImageError  
+from werkzeug.utils import secure_filename      
 import psutil
+
+try:
+    import pillow_heif  
+    pillow_heif.register_heif_opener()
+except Exception:
+    pass
 
 # --- inference imports ---
 from predict_image import predict_single_image
@@ -18,14 +24,37 @@ from predict_breed import predict_dog_breed
 from predict_cat_breed import predict_cat_breed
 # -------------------------
 
-# --- OpenTelemetry imports ---
-from opentelemetry import trace
-from opentelemetry.instrumentation.flask import FlaskInstrumentor
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-# -----------------------------
+# --- OpenTelemetry (optional) ---
+OTEL_ENABLED = True
+try:
+    from opentelemetry import trace as _otel_trace
+    from opentelemetry.instrumentation.flask import FlaskInstrumentor
+    try:
+        from opentelemetry.instrumentation.requests import RequestsInstrumentor  
+    except Exception:
+        RequestsInstrumentor = None
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    try:
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  
+    except Exception:
+        OTLPSpanExporter = None
+    trace = _otel_trace
+except Exception:
+    OTEL_ENABLED = False
+    class _NoTrace:
+        def get_tracer(self, *a, **k): return None
+        def get_current_span(self): return None
+    class _NoInstr:
+        def instrument_app(self, *a, **k): pass
+        def instrument(self, *a, **k): pass
+    trace = _NoTrace()
+    FlaskInstrumentor = _NoInstr
+    RequestsInstrumentor = None
+    TracerProvider = object
+    BatchSpanProcessor = object
+    OTLPSpanExporter = None
+# --------------------------------
 
 load_dotenv()
 
@@ -36,9 +65,12 @@ APP_TOKEN      = os.getenv("APP_TOKEN", "dev-admin")
 PUBLIC_API_KEY = os.getenv("PUBLIC_API_KEY", "dev-key")
 API_KEY_REQUIRED = os.getenv("API_KEY_REQUIRED", "true").lower() == "true"
 
-ALLOWED_TYPES = {"image/jpeg", "image/png"}
-ALLOWED_EXTS = {"jpg", "jpeg", "png"}  # [SEC] filename whitelist
-MAX_SIZE = 5 * 1024 * 1024  # 5MB
+ALLOWED_TYPES = {
+    "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif",
+    "application/octet-stream" 
+}
+ALLOWED_EXTS = {"jpg", "jpeg", "png", "webp", "heic", "heif"}
+MAX_SIZE = 10 * 1024 * 1024  # 5MB
 
 UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")
 DB_FILE       = os.getenv("DB_FILE", "cat_dog.db")
@@ -55,12 +87,23 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_SIZE + 1024 * 1024
 limiter = Limiter(get_remote_address, app=app, default_limits=["100/minute"])  # already present
 
 # ====== OpenTelemetry (init AFTER app is created) ======
-tp = TracerProvider()
-trace.set_tracer_provider(tp)
-tp.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=OTLP_ENDPOINT)))
-FlaskInstrumentor().instrument_app(app)
-RequestsInstrumentor().instrument()
-tracer = trace.get_tracer(__name__)
+if OTEL_ENABLED:
+    tp = TracerProvider()
+    trace.set_tracer_provider(tp)
+    if OTLPSpanExporter:
+        tp.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=OTLP_ENDPOINT)))
+    try:
+        FlaskInstrumentor().instrument_app(app)
+    except Exception:
+        pass
+    if RequestsInstrumentor is not None:
+        try:
+            RequestsInstrumentor().instrument()
+        except Exception:
+            pass
+    tracer = trace.get_tracer(__name__)
+else:
+    tracer = None
 
 # ====== Prometheus Metrics (unified) ======
 HTTP_REQ = Counter("http_requests_total", "Total HTTP requests", ["method", "path", "code"])
@@ -75,6 +118,7 @@ UPTIME = Gauge("process_uptime_seconds", "process uptime seconds")
 
 START_TS = time.time()
 MODEL_LOADED = False
+
 
 # ====== Utilities ======
 def _json(code, obj):
@@ -134,20 +178,32 @@ def _file_guards(fs):
     f = fs["image"]
     if not f or not getattr(f, "mimetype", None):
         return 400, "bad file"
-    if not _extension_ok(f.filename):                 # [SEC]
-        return 400, "bad filename"
-    if f.mimetype not in ALLOWED_TYPES:
+
+    filename = (getattr(f, "filename", "") or "").strip()
+    mimetype = (f.mimetype or "").lower()
+
+    if not (mimetype.startswith("image/") or mimetype in ALLOWED_TYPES):
         return 400, "bad content-type"
-    # size check
-    f.seek(0, os.SEEK_END)
-    sz = f.tell()
-    f.seek(0)
+
+    if "." in filename:
+        ext = filename.rsplit(".", 1)[-1].lower()
+        if ext not in ALLOWED_EXTS:
+            return 400, "bad filename"
+
+    try:
+        f.seek(0, os.SEEK_END)
+        sz = f.tell()
+        f.seek(0)
+    except Exception:
+        return 400, "bad file stream"
     if sz > MAX_SIZE:
         return 400, "file too large"
-    # decode check
-    if not _verify_image_stream(f):                   # [SEC]
+
+    if not _verify_image_stream(f):
         return 400, "corrupt or invalid image"
+
     return 0, "ok"
+
 
 def _secure_save_file(f):
     """[SEC] save to randomized, sanitized filename; no user-controlled path."""
@@ -159,16 +215,123 @@ def _secure_save_file(f):
     return safe_name, path
 
 def extract_dominant_color(img_path):
-    img = Image.open(img_path).convert('RGB')
-    colors = img.getcolors(img.size[0] * img.size[1])
-    dominant = max(colors, key=lambda tup: tup[0])
-    r, g, b = dominant[1]
-    if r > 200 and g > 200 and b > 200: return "White"
-    if r < 50 and g < 50 and b < 50:    return "Black"
-    if r > g and r > b:                 return "Red-ish"
-    if g > r and g > b:                 return "Green-ish"
-    if b > r and b > g:                 return "Blue-ish"
-    return f"RGB({r},{g},{b})"
+  
+    
+    import numpy as np, colorsys
+    from PIL import Image
+
+  
+    TARGET_SIZE = 256
+    GAUSS_SIGMA = 0.28     
+    GREEN_SUPPRESS = 0.25   
+    BLUE_SUPPRESS  = 0.35   
+    BG_DOM_THRESH  = 0.50     
+    SAT_MIN        = 0.12     
+    VAL_BLACK_MAX  = 0.10     
+    VAL_WHITE_MIN  = 0.97      
+    H_BINS         = 36         
+ 
+
+    def rgb_to_hsv01_arr(rgb):
+        rgb = rgb.astype(np.float32) / 255.0
+        r, g, b = rgb[:,0], rgb[:,1], rgb[:,2]
+        mx, mn = np.maximum.reduce([r,g,b]), np.minimum.reduce([r,g,b])
+        diff = mx - mn
+        h = np.zeros_like(mx)
+        mask = diff > 1e-6
+        r_eq = (mx == r) & mask
+        g_eq = (mx == g) & mask
+        b_eq = (mx == b) & mask
+        h[r_eq] = ((g[r_eq] - b[r_eq]) / diff[r_eq]) % 6.0
+        h[g_eq] = ((b[g_eq] - r[g_eq]) / diff[g_eq]) + 2.0
+        h[b_eq] = ((r[b_eq] - g[b_eq]) / diff[b_eq]) + 4.0
+        h = (h / 6.0) % 1.0
+        s = np.zeros_like(mx)
+        s[mx > 1e-6] = diff[mx > 1e-6] / mx[mx > 1e-6]
+        v = mx
+        return h, s, v
+
+    def name_color_from_hsv(h, s, v):
+        h_deg = h * 360.0
+        if v > VAL_WHITE_MIN and s < 0.08: return "White"
+        if v < VAL_BLACK_MAX:              return "Black"
+        if s < 0.12:
+            return "Silver" if v >= 0.7 else "Gray"
+
+        warm = 15 <= h_deg <= 65
+        if warm:
+            if s < 0.22 and v > 0.85:                     return "Cream"
+            if s < 0.25 and 0.65 < v <= 0.85:             return "Beige"
+            if 20 <= h_deg <= 45 and 0.20 <= s <= 0.55 and 0.55 <= v <= 0.85: return "Tan"
+            if 38 <= h_deg <= 52 and s >= 0.40 and v >= 0.50:                 return "Gold"
+            if 15 <= h_deg <= 45 and s >= 0.35 and v < 0.55:                   return "Brown"
+            if 52 <  h_deg <= 65 and s >= 0.40 and v >= 0.60:                  return "Yellow"
+            if 20 <= h_deg <  38 and s >= 0.50 and v >= 0.50:                  return "Orange"
+
+        if (h_deg >= 345 or h_deg < 15):  return "Red"
+        if 160 <= h_deg < 200:            return "Teal" if (v < 0.6 and s >= 0.3) else "Cyan"
+        if 80  <= h_deg < 160:            return "Green"
+        if 200 <= h_deg < 260:            return "Blue"
+        if 260 <= h_deg < 290:            return "Purple"
+        if 290 <= h_deg < 330:            return "Magenta"
+        if 330 <= h_deg < 345:            return "Pink"
+        return "Gold" if (35 <= h_deg <= 55) else ("Green" if 90 <= h_deg <= 150 else "Red")
+
+    img = Image.open(img_path).convert("RGB")
+    img.thumbnail((TARGET_SIZE, TARGET_SIZE))
+    w, h = img.size
+    arr = np.asarray(img) 
+    flat = arr.reshape(-1, 3)
+
+    yy, xx = np.mgrid[0:h, 0:w]
+    cy, cx = (h-1)/2.0, (w-1)/2.0
+    dy, dx = (yy - cy) / h, (xx - cx) / w
+    dist2 = dx*dx + dy*dy
+    gauss = np.exp(-dist2 / (2 * (GAUSS_SIGMA**2)))
+    weights = gauss.reshape(-1)
+
+    H, S, V = rgb_to_hsv01_arr(flat)
+    keep = (S >= SAT_MIN) & (V >= VAL_BLACK_MAX) & (V <= 0.995)
+    if keep.sum() < 50:
+        keep = np.ones_like(weights, dtype=bool)
+
+    Hk, Sk, Vk = H[keep], S[keep], V[keep]
+    wk = weights[keep]
+
+    is_green = (Hk >= 80/360) & (Hk <= 160/360)
+    is_blue  = (Hk >= 200/360) & (Hk <= 250/360)
+
+    green_ratio = (wk[is_green].sum() / wk.sum()) if wk.sum() > 0 else 0.0
+    blue_ratio  = (wk[is_blue].sum()  / wk.sum()) if wk.sum() > 0 else 0.0
+
+    wk2 = wk.copy()
+    if green_ratio >= BG_DOM_THRESH:
+        wk2[is_green] *= GREEN_SUPPRESS
+    if blue_ratio  >= BG_DOM_THRESH:
+        wk2[is_blue]  *= BLUE_SUPPRESS
+
+    bins = np.linspace(0.0, 1.0, H_BINS+1)
+    hist, _ = np.histogram(Hk, bins=bins, weights=wk2)
+    top_bin = np.argmax(hist)
+    if hist[top_bin] <= 1e-9:
+        idx = np.argmax(wk2)
+        h_star, s_star, v_star = float(Hk[idx]), float(Sk[idx]), float(Vk[idx])
+    else:
+        b_lo, b_hi = bins[top_bin], bins[top_bin+1]
+        in_bin = (Hk >= b_lo) & (Hk < b_hi)
+        wbin = wk2[in_bin]
+        if wbin.sum() < 1e-9:
+            idx = np.argmax(wk2)
+            h_star, s_star, v_star = float(Hk[idx]), float(Sk[idx]), float(Vk[idx])
+        else:
+            h_star = float(np.average(Hk[in_bin], weights=wbin))
+            s_star = float(np.average(Sk[in_bin], weights=wbin))
+            v_star = float(np.average(Vk[in_bin], weights=wbin))
+
+    
+    return name_color_from_hsv(h_star, s_star, v_star)
+
+
 
 def init_db():
     with sqlite3.connect(DB_FILE) as conn:
@@ -252,6 +415,23 @@ def admin_ping():
     return _json(200, {"ok": True})
 
 # ====== Business APIs ======
+@app.get("/upload")
+def upload_form():
+    return """
+    <!doctype html>
+    <html>
+    <head><meta charset="utf-8"><title>Upload test</title></head>
+    <body style="font-family:sans-serif;padding:20px">
+      <h3>Upload an image to /classify</h3>
+      <form action="/classify" method="post" enctype="multipart/form-data">
+        <input type="file" name="image" accept="image/*" required />
+        <button type="submit">Upload</button>
+      </form>
+      
+    </body>
+    </html>
+    """
+
 @app.post("/classify")
 @require_public_key
 @limiter.limit("10/second")

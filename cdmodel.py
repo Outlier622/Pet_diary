@@ -86,8 +86,9 @@ model.save("cat_dog_classifier.keras")
 print("Model saved to 'cat_dog_classifier.keras'")
 
 # --- Export to TFLite format ---
-converter = tf.lite.TFLiteConverter.from_saved_model("mobilenetv2_cat_dog_saved_model")
+
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
 tflite_model = converter.convert()
 with open("mobilenetv2_cat_dog_model.tflite", "wb") as f:
     f.write(tflite_model)
-print("TFLite model saved to 'mobilenetv2_cat_dog_model.tflite'")
+
