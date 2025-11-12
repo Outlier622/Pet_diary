@@ -75,3 +75,10 @@ This setup improves throughput, resilience, and deployment flexibility—support
    - Source: Third-party curated dataset ([not publicly hosted](https://www.kaggle.com/datasets/shawngano/gano-cat-breed-image-collection?utm_source=chatgpt.com))
    - Purpose: Improve cat breed classification with 15 cleanly separated categories.
    - Images: 5,625 
+
+
+## Demo Preview
+![Start Page](This_is_the_interface_of_this_app/Screenshot_20251111_232434_com.example.cat_dog_app.jpg)
+![Upload Page](This_is_the_interface_of_this_app/Screenshot_20251111_232340_com.example.cat_dog_app.jpg)
+![Search Page](This_is_the_interface_of_this_app/Screenshot_20251111_232419_com.example.cat_dog_app.jpg)
+![Search Page](This_is_the_interface_of_this_app/Screenshot_20251111_232425_com.example.cat_dog_app.jpg)
