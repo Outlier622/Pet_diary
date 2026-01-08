@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../db/timeline_dao.dart';
 
 class FeedLogItem {
   final String id;
   final int dateMs;
-  final String food; // 食物/品牌（可空）
-  final String amount; // 份量（可空）
+  final String food; 
+  final String amount;
   final String note;
 
   FeedLogItem({
@@ -58,5 +59,13 @@ class FeedLogStore {
     final sp = await SharedPreferences.getInstance();
     final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
     await sp.setString(_key, encoded);
+
+    await TimelineDao.instance.syncTypeFromSnapshot<FeedLogItem>(
+      type: 'feed',
+      items: items,
+      idOf: (x) => x.id,
+      dateMsOf: (x) => x.dateMs,
+      payloadOf: (x) => x.toJson(),
+    );
   }
 }

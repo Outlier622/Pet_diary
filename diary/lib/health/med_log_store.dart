@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../db/timeline_dao.dart';
 class MedLogItem {
   final String id;
   final int dateMs;
 
-  final String medName;   // 药名
-  final String dosage;    // 剂量（可空）
-  final String schedule;  // 频次/说明（可空）
-  final String note;      // 备注（可空）
+  final String medName;
+  final String dosage;
+  final String schedule;
+  final String note;
 
   MedLogItem({
     required this.id,
@@ -63,5 +63,13 @@ class MedLogStore {
     final sp = await SharedPreferences.getInstance();
     final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
     await sp.setString(_key, encoded);
+
+    await TimelineDao.instance.syncTypeFromSnapshot<MedLogItem>(
+      type: 'med',
+      items: items,
+      idOf: (x) => x.id,
+      dateMsOf: (x) => x.dateMs,
+      payloadOf: (x) => x.toJson(),
+    );
   }
 }

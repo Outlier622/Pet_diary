@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../db/timeline_dao.dart';
 
-/// 驱虫类型：体内 / 体外
 enum DewormType { internal, external }
 
 String dewormTypeToText(DewormType t) => t == DewormType.internal ? '体内' : '体外';
@@ -64,5 +64,13 @@ class DewormLogStore {
     final sp = await SharedPreferences.getInstance();
     final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
     await sp.setString(_key, encoded);
+
+    await TimelineDao.instance.syncTypeFromSnapshot<DewormLogItem>(
+      type: 'deworm',
+      items: items,
+      idOf: (x) => x.id,
+      dateMsOf: (x) => x.dateMs,
+      payloadOf: (x) => x.toJson(),
+    );
   }
 }

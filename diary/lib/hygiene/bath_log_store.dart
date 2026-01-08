@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../db/timeline_dao.dart';
 class BathLogItem {
-  final String id; // simple unique id
-  final int dateMs; // date in millis (local midnight or chosen time)
+  final String id;
+  final int dateMs;
   final String note;
 
   BathLogItem({
@@ -48,5 +48,13 @@ class BathLogStore {
     final sp = await SharedPreferences.getInstance();
     final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
     await sp.setString(_key, encoded);
+
+    await TimelineDao.instance.syncTypeFromSnapshot<BathLogItem>(
+      type: 'bath',
+      items: items,
+      idOf: (x) => x.id,
+      dateMsOf: (x) => x.dateMs,
+      payloadOf: (x) => x.toJson(),
+    );
   }
 }

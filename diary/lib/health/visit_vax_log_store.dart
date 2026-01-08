@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../db/timeline_dao.dart';
 enum VisitVaxType { visit, vaccine }
 
 String vvTypeToText(VisitVaxType t) => t == VisitVaxType.visit ? '就医' : '疫苗';
@@ -10,7 +10,7 @@ class VisitVaxLogItem {
   final String id;
   final int dateMs;
   final VisitVaxType type;
-  final String title; // 医院/疫苗名/项目
+  final String title;
   final String note;
 
   VisitVaxLogItem({
@@ -63,5 +63,13 @@ class VisitVaxLogStore {
     final sp = await SharedPreferences.getInstance();
     final encoded = jsonEncode(items.map((e) => e.toJson()).toList());
     await sp.setString(_key, encoded);
+
+    await TimelineDao.instance.syncTypeFromSnapshot<VisitVaxLogItem>(
+      type: 'visit_vax',
+      items: items,
+      idOf: (x) => x.id,
+      dateMsOf: (x) => x.dateMs,
+      payloadOf: (x) => x.toJson(),
+    );
   }
 }

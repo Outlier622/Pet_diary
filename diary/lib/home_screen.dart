@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'db/timeline_readonly_page.dart';
 
 import 'pet_profile_page.dart';
 import 'edge_buttons.dart';
@@ -63,9 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (!mounted) return;
       setState(() => _bgFile = saved);
-
-      // 你要的话可以打开：选背景后顺便请求后端识别（用现成 /breed）
-      // await _classifyAndToast(saved);
 
       _snack('背景已更新');
     } catch (e) {
@@ -159,6 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('HOME_SCREEN_BUILD ✅');
     return Scaffold(
       body: SafeArea(
         child: Stack(
@@ -229,28 +228,42 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
 
               // 底部“恢复默认”按钮（你之前要求删除“选择背景”）
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 110),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        OutlinedButton(
-                          onPressed: _clearBackground,
-                          child: const Text('恢复默认'),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '提示：点击空白区域可隐藏/恢复 UI',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+Align(
+  alignment: Alignment.bottomCenter,
+  child: SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: 110),
+      child: Material( // 关键：Material 只包内容
+        color: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OutlinedButton(
+              onPressed: _clearBackground,
+              child: const Text('恢复默认'),
+            ),
+            const SizedBox(height: 10),
+            FilledButton.tonal(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TimelineReadonlyPage()),
+                );
+              },
+              child: const Text('SQLite Timeline（只读）'),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '提示：点击空白区域可隐藏/恢复 UI',
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+),
+
             ],
           ],
         ),

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../db/timeline_dao.dart';
 class AllergyPref {
   final String allergies;
   final String preferences;
@@ -45,5 +45,13 @@ class AllergyPrefStore {
   static Future<void> save(AllergyPref v) async {
     final sp = await SharedPreferences.getInstance();
     await sp.setString(_key, jsonEncode(v.toJson()));
+
+    await TimelineDao.instance.syncTypeFromSnapshot<AllergyPref>(
+      type: 'allergy_pref',
+      items: [v],
+      idOf: (_) => 'allergy_pref', 
+      dateMsOf: (_) => DateTime.now().millisecondsSinceEpoch,
+      payloadOf: (x) => x.toJson(),
+    );
   }
 }
