@@ -4,10 +4,13 @@ import '../db/timeline_dao.dart';
 
 enum DewormType { internal, external }
 
-String dewormTypeToText(DewormType t) => t == DewormType.internal ? '体内' : '体外';
+String dewormTypeToText(DewormType t) {
+  return t == DewormType.internal ? 'Internal' : 'External';
+}
 
 DewormType dewormTypeFromText(String s) {
-  if (s == '体外') return DewormType.external;
+  final v = s.toLowerCase();
+  if (v == 'external') return DewormType.external;
   return DewormType.internal;
 }
 
@@ -35,8 +38,10 @@ class DewormLogItem {
 
   static DewormLogItem fromJson(Map<String, dynamic> m) => DewormLogItem(
         id: (m['id'] ?? '').toString(),
-        dateMs: (m['dateMs'] is int) ? m['dateMs'] as int : int.parse(m['dateMs'].toString()),
-        type: dewormTypeFromText((m['type'] ?? '体内').toString()),
+        dateMs: (m['dateMs'] is int)
+            ? m['dateMs'] as int
+            : int.parse(m['dateMs'].toString()),
+        type: dewormTypeFromText((m['type'] ?? 'Internal').toString()),
         note: (m['note'] ?? '').toString(),
       );
 }
@@ -48,6 +53,7 @@ class DewormLogStore {
     final sp = await SharedPreferences.getInstance();
     final raw = sp.getString(_key);
     if (raw == null || raw.trim().isEmpty) return [];
+
     try {
       final list = (jsonDecode(raw) as List).cast<dynamic>();
       final items = list

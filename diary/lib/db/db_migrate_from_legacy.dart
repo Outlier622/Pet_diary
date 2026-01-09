@@ -1,21 +1,15 @@
-// lib/db/db_migrate_from_legacy.dart
 import 'dart:convert';
-
 import 'package:sqflite/sqflite.dart';
-
 import '../album/album_store.dart';
 
-// food
 import '../food/feed_log_store.dart';
 import '../food/water_log_store.dart';
 import '../food/allergy_pref_store.dart';
 
-// health
 import '../health/weight_log_store.dart';
 import '../health/med_log_store.dart';
 import '../health/visit_vax_log_store.dart';
 
-// hygiene
 import '../hygiene/bath_log_store.dart';
 import '../hygiene/deworm_log_store.dart';
 import '../hygiene/groom_log_store.dart';
@@ -52,13 +46,9 @@ class DbMigrateFromLegacy {
     return (rows.first['c'] as int?) ?? 0;
   }
 
-  // -------------------------
-  // Safe helpers (no assumptions)
-  // -------------------------
 
   static DateTime _dtFromMs(int ms) => DateTime.fromMillisecondsSinceEpoch(ms);
 
-  /// 尽力从对象里推断发生时间：dateMs / dueMs / nextMs / timeMs / occurredMs
   static DateTime _inferOccurredAt(dynamic o) {
     final now = DateTime.now();
 
@@ -87,7 +77,6 @@ class DbMigrateFromLegacy {
     return null;
   }
 
-  /// 尽力拿到 id：o.id，否则用 fallback
   static String _inferId(dynamic o, String fallback) {
     try {
       final v = o.id;
@@ -96,7 +85,6 @@ class DbMigrateFromLegacy {
     return fallback;
   }
 
-  /// 尽力拿到 payload：toJson / toMap，否则 raw string
   static Map<String, dynamic> _inferPayload(dynamic o, {Map<String, dynamic>? extra}) {
     Map<String, dynamic>? m;
 
@@ -120,9 +108,6 @@ class DbMigrateFromLegacy {
     return m;
   }
 
-  // -------------------------
-  // Main migration
-  // -------------------------
 
   static Future<MigrateResult> migrateAll({void Function(String msg)? log}) async {
     log ??= (_) {};
@@ -130,22 +115,17 @@ class DbMigrateFromLegacy {
 
     log('Loading legacy stores...');
 
-    // album
     final albums = await AlbumStore.load();
 
-    // food
     final feeds = await FeedLogStore.load();
     final waters = await WaterLogStore.load();
 
-    // ⚠️ AllergyPref 是“设置类”，通常是单个对象，不是 List
     final allergyPref = await AllergyPrefStore.load();
 
-    // health
     final weights = await WeightLogStore.load();
     final meds = await MedLogStore.load();
     final visitVax = await VisitVaxLogStore.load();
 
-    // hygiene
     final baths = await BathLogStore.load();
     final deworms = await DewormLogStore.load();
     final grooms = await GroomLogStore.load();
@@ -197,9 +177,6 @@ class DbMigrateFromLegacy {
         migrated[type] = (migrated[type] ?? 0) + 1;
       }
 
-      // -------------------------
-      // album (AlbumItem 没有 toJson -> 手写 payload)
-      // -------------------------
       for (final a in albums) {
         upsertEvent(
           id: a.id,
@@ -214,9 +191,6 @@ class DbMigrateFromLegacy {
         );
       }
 
-      // -------------------------
-      // food: feed (你给的 FeedLogItem 有 toJson/dateMs)
-      // -------------------------
       for (final f in feeds) {
         upsertEvent(
           id: f.id,
@@ -226,9 +200,6 @@ class DbMigrateFromLegacy {
         );
       }
 
-      // -------------------------
-      // food: water (不假设字段，用 dynamic 推断)
-      // -------------------------
       for (final w in waters) {
         final dyn = w as dynamic;
         upsertEvent(
@@ -239,23 +210,16 @@ class DbMigrateFromLegacy {
         );
       }
 
-      // -------------------------
-      // food: allergy_pref (单对象设置类)
-      // 用固定 id，重复跑会 replace，不会重复插入
-      // -------------------------
       if (allergyPref != null) {
         final dyn = allergyPref as dynamic;
         upsertEvent(
           id: _inferId(dyn, 'allergy_pref'),
           type: 'allergy_pref',
-          occurredAt: _inferOccurredAt(dyn), // 没有时间就 now
+          occurredAt: _inferOccurredAt(dyn),
           payload: _inferPayload(dyn),
         );
       }
 
-      // -------------------------
-      // health logs (dynamic 推断，保证字段名不同也能迁)
-      // -------------------------
       for (final w in weights) {
         final dyn = w as dynamic;
         upsertEvent(
@@ -286,9 +250,6 @@ class DbMigrateFromLegacy {
         );
       }
 
-      // -------------------------
-      // hygiene logs
-      // -------------------------
       for (final b in baths) {
         final dyn = b as dynamic;
         upsertEvent(
@@ -319,7 +280,6 @@ class DbMigrateFromLegacy {
         );
       }
 
-      // clean_reminder：你报错说没有 dateMs，所以也用推断
       for (final r in cleanReminders) {
         final dyn = r as dynamic;
         upsertEvent(

@@ -60,11 +60,11 @@ class _VisitVaxLogModalState extends State<VisitVaxLogModal> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('删除记录？'),
-        content: const Text('此操作不可撤销。'),
+        title: const Text('Delete this entry?'),
+        content: const Text('This action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -88,19 +88,27 @@ class _VisitVaxLogModalState extends State<VisitVaxLogModal> {
           Row(
             children: [
               Expanded(
-                child: Text('记录数：${_items.length}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(
+                  'Total: ${_items.length}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
               FilledButton.icon(
                 onPressed: _add,
                 icon: const Icon(Icons.add),
-                label: const Text('添加'),
+                label: const Text('Add'),
               ),
             ],
           ),
           const SizedBox(height: 12),
           Expanded(
             child: _items.isEmpty
-                ? const Center(child: Text('暂无记录\n点击右上角“添加”创建', textAlign: TextAlign.center))
+                ? const Center(
+                    child: Text(
+                      'No entries yet.\nTap "Add" to create one.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
                 : ListView.separated(
                     itemCount: _items.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
@@ -108,13 +116,16 @@ class _VisitVaxLogModalState extends State<VisitVaxLogModal> {
                       final it = _items[i];
                       final tag = vvTypeToText(it.type);
                       final sub = [
-                        '$tag：${it.title}',
-                        if (it.note.isNotEmpty) '备注：${it.note}',
+                        '$tag: ${it.title}',
+                        if (it.note.isNotEmpty) 'Notes: ${it.note}',
                       ].join(' · ');
 
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                        title: Text(_fmtDate(it.date), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        title: Text(
+                          _fmtDate(it.date),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                         subtitle: Text(sub),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline),
@@ -181,13 +192,13 @@ class _AddDialogState extends State<_AddDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('添加记录'),
+      title: const Text('Add Entry'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              const Text('日期：'),
+              const Text('Date:'),
               const SizedBox(width: 8),
               OutlinedButton(onPressed: _pickDate, child: Text(_fmt(_date))),
             ],
@@ -195,13 +206,13 @@ class _AddDialogState extends State<_AddDialog> {
           const SizedBox(height: 10),
           Row(
             children: [
-              const Text('类型：'),
+              const Text('Type:'),
               const SizedBox(width: 8),
               DropdownButton<VisitVaxType>(
                 value: _type,
                 items: const [
-                  DropdownMenuItem(value: VisitVaxType.visit, child: Text('就医')),
-                  DropdownMenuItem(value: VisitVaxType.vaccine, child: Text('疫苗')),
+                  DropdownMenuItem(value: VisitVaxType.visit, child: Text('Vet Visit')),
+                  DropdownMenuItem(value: VisitVaxType.vaccine, child: Text('Vaccine')),
                 ],
                 onChanged: (v) {
                   if (v == null) return;
@@ -214,7 +225,9 @@ class _AddDialogState extends State<_AddDialog> {
           TextField(
             controller: _titleCtrl,
             decoration: InputDecoration(
-              labelText: _type == VisitVaxType.visit ? '医院/项目（必填）' : '疫苗名称（必填）',
+              labelText: _type == VisitVaxType.visit
+                  ? 'Clinic / Procedure (required)'
+                  : 'Vaccine name (required)',
               border: const OutlineInputBorder(),
             ),
           ),
@@ -223,26 +236,26 @@ class _AddDialogState extends State<_AddDialog> {
             controller: _noteCtrl,
             maxLines: 2,
             decoration: const InputDecoration(
-              labelText: '备注（可选）',
+              labelText: 'Notes (optional)',
               border: OutlineInputBorder(),
             ),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () {
             final t = _titleCtrl.text.trim();
             if (t.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('内容不能为空'), duration: Duration(seconds: 1)),
+                const SnackBar(content: Text('This field is required'), duration: Duration(seconds: 1)),
               );
               return;
             }
             Navigator.pop(context, _Draft(_date, _type, t, _noteCtrl.text));
           },
-          child: const Text('保存'),
+          child: const Text('Save'),
         ),
       ],
     );

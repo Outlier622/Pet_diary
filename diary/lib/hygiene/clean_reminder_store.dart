@@ -14,7 +14,7 @@ class CleanReminder {
   final int minute;
 
   final int? onceDateMs;
-  final List<int> weekdays; // 1..7
+  final List<int> weekdays; 
   final String note;
 
   CleanReminder({
@@ -62,18 +62,16 @@ class CleanReminder {
   DateTime? nextTriggerTime({DateTime? now}) {
   final DateTime baseNow = (now ?? DateTime.now());
 
-  // once：就是目标时间（如果已过期则返回 null）
   if (type == CleanReminderType.once) {
     if (onceDateMs == null) return null;
     final t = DateTime.fromMillisecondsSinceEpoch(onceDateMs!);
     return t.isAfter(baseNow) ? t : null;
   }
 
-  // weekly：找下一个符合 weekday + hour/minute 的时间
   if (weekdays.isEmpty) return null;
 
   final sorted = [...weekdays]..sort();
-  final nowWd = baseNow.weekday; // 1..7 (Mon..Sun)
+  final nowWd = baseNow.weekday;
 
   DateTime candidateForWeekday(int wd, int addDays) {
     final day = DateTime(
@@ -86,17 +84,15 @@ class CleanReminder {
     return day;
   }
 
-  // 先看“今天是否在选中周几里，并且时间还没过”
   if (sorted.contains(nowWd)) {
     final today = DateTime(baseNow.year, baseNow.month, baseNow.day, hour, minute);
     if (today.isAfter(baseNow)) return today;
   }
 
-  // 否则往后找最近的周几
   int bestDelta = 9999;
   for (final wd in sorted) {
     int delta = wd - nowWd;
-    if (delta <= 0) delta += 7; // 推到下周
+    if (delta <= 0) delta += 7;
     if (delta < bestDelta) bestDelta = delta;
   }
 

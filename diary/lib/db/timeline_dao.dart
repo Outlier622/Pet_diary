@@ -67,8 +67,6 @@ class TimelineDao {
 
     await batch.commit(noResult: true);
   }
-    /// Return rows for a given type, newest first.
-  /// Row keys match what AlbumStore expects: id, occurredAt, payloadJson.
   Future<List<Map<String, Object?>>> listByType(
     String type, {
     String petId = defaultPetId,
@@ -87,7 +85,6 @@ class TimelineDao {
     );
   }
 
-  /// Insert or replace one row by (petId, type, id).
   Future<void> upsert({
     required String id,
     required String type,
@@ -113,8 +110,6 @@ class TimelineDao {
     );
   }
 
-  /// Delete by id (and petId).
-  /// Note: If you want to delete only within a type, add `type` as parameter.
   Future<void> delete(
     String id, {
     String petId = defaultPetId,

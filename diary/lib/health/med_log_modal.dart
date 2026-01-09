@@ -61,11 +61,11 @@ class _MedLogModalState extends State<MedLogModal> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('删除记录？'),
-        content: const Text('此操作不可撤销。'),
+        title: const Text('Delete this entry?'),
+        content: const Text('This action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -89,33 +89,44 @@ class _MedLogModalState extends State<MedLogModal> {
           Row(
             children: [
               Expanded(
-                child: Text('记录数：${_items.length}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(
+                  'Total: ${_items.length}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
               FilledButton.icon(
                 onPressed: _add,
                 icon: const Icon(Icons.add),
-                label: const Text('添加'),
+                label: const Text('Add'),
               ),
             ],
           ),
           const SizedBox(height: 12),
           Expanded(
             child: _items.isEmpty
-                ? const Center(child: Text('暂无用药记录\n点击右上角“添加”创建', textAlign: TextAlign.center))
+                ? const Center(
+                    child: Text(
+                      'No medication logs yet.\nTap "Add" to create one.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
                 : ListView.separated(
                     itemCount: _items.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (_, i) {
                       final it = _items[i];
                       final parts = <String>[];
-                      parts.add('药名：${it.medName}');
-                      if (it.dosage.isNotEmpty) parts.add('剂量：${it.dosage}');
-                      if (it.schedule.isNotEmpty) parts.add('频次：${it.schedule}');
-                      if (it.note.isNotEmpty) parts.add('备注：${it.note}');
+                      parts.add('Medication: ${it.medName}');
+                      if (it.dosage.isNotEmpty) parts.add('Dosage: ${it.dosage}');
+                      if (it.schedule.isNotEmpty) parts.add('Schedule: ${it.schedule}');
+                      if (it.note.isNotEmpty) parts.add('Notes: ${it.note}');
 
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                        title: Text(_fmtDate(it.date), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        title: Text(
+                          _fmtDate(it.date),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                         subtitle: Text(parts.join(' · ')),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline),
@@ -186,13 +197,13 @@ class _AddDialogState extends State<_AddDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('添加用药记录'),
+      title: const Text('Add Medication Log'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              const Text('日期：'),
+              const Text('Date:'),
               const SizedBox(width: 8),
               OutlinedButton(onPressed: _pickDate, child: Text(_fmt(_date))),
             ],
@@ -201,7 +212,7 @@ class _AddDialogState extends State<_AddDialog> {
           TextField(
             controller: _nameCtrl,
             decoration: const InputDecoration(
-              labelText: '药名（必填）',
+              labelText: 'Medication name (required)',
               border: OutlineInputBorder(),
             ),
           ),
@@ -209,7 +220,7 @@ class _AddDialogState extends State<_AddDialog> {
           TextField(
             controller: _dosageCtrl,
             decoration: const InputDecoration(
-              labelText: '剂量（可选，如 1/2片、2ml）',
+              labelText: 'Dosage (optional, e.g., 1/2 tablet, 2 ml)',
               border: OutlineInputBorder(),
             ),
           ),
@@ -217,7 +228,7 @@ class _AddDialogState extends State<_AddDialog> {
           TextField(
             controller: _scheduleCtrl,
             decoration: const InputDecoration(
-              labelText: '频次/说明（可选，如 每日1次）',
+              labelText: 'Schedule (optional, e.g., once daily)',
               border: OutlineInputBorder(),
             ),
           ),
@@ -226,20 +237,20 @@ class _AddDialogState extends State<_AddDialog> {
             controller: _noteCtrl,
             maxLines: 2,
             decoration: const InputDecoration(
-              labelText: '备注（可选）',
+              labelText: 'Notes (optional)',
               border: OutlineInputBorder(),
             ),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () {
             final name = _nameCtrl.text.trim();
             if (name.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('药名不能为空'), duration: Duration(seconds: 1)),
+                const SnackBar(content: Text('Medication name is required'), duration: Duration(seconds: 1)),
               );
               return;
             }
@@ -248,7 +259,7 @@ class _AddDialogState extends State<_AddDialog> {
               _Draft(_date, name, _dosageCtrl.text, _scheduleCtrl.text, _noteCtrl.text),
             );
           },
-          child: const Text('保存'),
+          child: const Text('Save'),
         ),
       ],
     );

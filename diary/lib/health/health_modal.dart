@@ -21,33 +21,33 @@ class HealthModal extends StatelessWidget {
         children: [
           _Entry(
             icon: Icons.monitor_weight_outlined,
-            title: '体重记录',
+            title: 'Weight Logs',
             onTap: () {
               CenterModal.show(
                 context,
-                title: '体重记录',
+                title: 'Weight Logs',
                 child: const WeightLogModal(),
               );
             },
           ),
           _Entry(
             icon: Icons.medication_outlined,
-            title: '用药记录',
+            title: 'Medication Logs',
             onTap: () {
               CenterModal.show(
                 context,
-                title: '用药记录',
+                title: 'Medication Logs',
                 child: const MedLogModal(),
               );
             },
           ),
           _Entry(
             icon: Icons.local_hospital_outlined,
-            title: '就医与疫苗',
+            title: 'Vet Visits & Vaccines',
             onTap: () {
               CenterModal.show(
                 context,
-                title: '就医与疫苗',
+                title: 'Vet Visits & Vaccines',
                 child: const VisitVaxLogModal(),
               );
             },
@@ -87,7 +87,10 @@ class _Entry extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),

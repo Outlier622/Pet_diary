@@ -55,7 +55,7 @@ class _GroomLogModalState extends State<GroomLogModal> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已添加梳毛/清洁记录'), duration: Duration(seconds: 1)),
+      const SnackBar(content: Text('Grooming log added'), duration: Duration(seconds: 1)),
     );
   }
 
@@ -63,11 +63,11 @@ class _GroomLogModalState extends State<GroomLogModal> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('删除记录？'),
-        content: const Text('此操作不可撤销。'),
+        title: const Text('Delete this entry?'),
+        content: const Text('This action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -92,21 +92,26 @@ class _GroomLogModalState extends State<GroomLogModal> {
             children: [
               Expanded(
                 child: Text(
-                  '记录数：${_items.length}',
+                  'Total: ${_items.length}',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
               FilledButton.icon(
                 onPressed: _add,
                 icon: const Icon(Icons.add),
-                label: const Text('添加'),
+                label: const Text('Add'),
               ),
             ],
           ),
           const SizedBox(height: 12),
           Expanded(
             child: _items.isEmpty
-                ? const Center(child: Text('暂无记录\n点击右上角“添加”创建第一条', textAlign: TextAlign.center))
+                ? const Center(
+                    child: Text(
+                      'No grooming logs yet.\nTap "Add" to create your first entry.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
                 : ListView.separated(
                     itemCount: _items.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
@@ -114,7 +119,10 @@ class _GroomLogModalState extends State<GroomLogModal> {
                       final it = _items[i];
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                        title: Text(_fmtDate(it.date), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        title: Text(
+                          _fmtDate(it.date),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                         subtitle: it.note.isEmpty ? null : Text(it.note),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline),
@@ -175,13 +183,13 @@ class _AddDialogState extends State<_AddDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('添加梳毛与清洁记录'),
+      title: const Text('Add Grooming Log'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              const Text('日期：'),
+              const Text('Date:'),
               const SizedBox(width: 8),
               OutlinedButton(
                 onPressed: _pickDate,
@@ -194,17 +202,17 @@ class _AddDialogState extends State<_AddDialog> {
             controller: _noteCtrl,
             maxLines: 3,
             decoration: const InputDecoration(
-              labelText: '备注（可选）',
+              labelText: 'Notes (optional)',
               border: OutlineInputBorder(),
             ),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () => Navigator.pop(context, _Draft(_date, _noteCtrl.text)),
-          child: const Text('保存'),
+          child: const Text('Save'),
         ),
       ],
     );

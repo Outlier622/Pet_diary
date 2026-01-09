@@ -56,7 +56,7 @@ class _BathLogModalState extends State<BathLogModal> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已添加洗澡记录'), duration: Duration(seconds: 1)),
+      const SnackBar(content: Text('Bath log added'), duration: Duration(seconds: 1)),
     );
   }
 
@@ -64,11 +64,11 @@ class _BathLogModalState extends State<BathLogModal> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('删除记录？'),
-        content: const Text('此操作不可撤销。'),
+        title: const Text('Delete this entry?'),
+        content: const Text('This action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -97,21 +97,26 @@ class _BathLogModalState extends State<BathLogModal> {
             children: [
               Expanded(
                 child: Text(
-                  '记录数：${_items.length}',
+                  'Total: ${_items.length}',
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
               FilledButton.icon(
                 onPressed: _add,
                 icon: const Icon(Icons.add),
-                label: const Text('添加'),
+                label: const Text('Add'),
               ),
             ],
           ),
           const SizedBox(height: 12),
           Expanded(
             child: _items.isEmpty
-                ? const Center(child: Text('暂无洗澡记录\n点击右上角“添加”创建第一条', textAlign: TextAlign.center))
+                ? const Center(
+                    child: Text(
+                      'No bath logs yet.\nTap "Add" to create your first entry.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
                 : ListView.separated(
                     itemCount: _items.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
@@ -119,7 +124,10 @@ class _BathLogModalState extends State<BathLogModal> {
                       final it = _items[i];
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                        title: Text(_fmtDate(it.date), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        title: Text(
+                          _fmtDate(it.date),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                         subtitle: (it.note.isEmpty) ? null : Text(it.note),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline),
@@ -180,13 +188,13 @@ class _AddBathDialogState extends State<_AddBathDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('添加洗澡记录'),
+      title: const Text('Add Bath Log'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              const Text('日期：'),
+              const Text('Date:'),
               const SizedBox(width: 8),
               OutlinedButton(
                 onPressed: _pickDate,
@@ -199,17 +207,17 @@ class _AddBathDialogState extends State<_AddBathDialog> {
             controller: _noteCtrl,
             maxLines: 3,
             decoration: const InputDecoration(
-              labelText: '备注（可选）',
+              labelText: 'Notes (optional)',
               border: OutlineInputBorder(),
             ),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () => Navigator.pop(context, _BathDraft(_date, _noteCtrl.text)),
-          child: const Text('保存'),
+          child: const Text('Save'),
         ),
       ],
     );

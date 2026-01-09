@@ -48,7 +48,7 @@ class _AllergyPrefModalState extends State<AllergyPrefModal> {
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已保存'), duration: Duration(seconds: 1)),
+      const SnackBar(content: Text('Saved.'), duration: Duration(seconds: 1)),
     );
   }
 
@@ -65,30 +65,37 @@ class _AllergyPrefModalState extends State<AllergyPrefModal> {
           Expanded(
             child: ListView(
               children: [
-                const Text('过敏（可填食材/品牌，多行）', style: TextStyle(fontWeight: FontWeight.w700)),
+                const Text('Allergies (ingredients or brands, multi-line)', style: TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _allergyCtrl,
                   maxLines: 3,
-                  decoration: const InputDecoration(border: OutlineInputBorder(), hintText: '例如：鸡肉、牛奶蛋白…'),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'e.g., chicken, dairy protein…',
+                  ),
                 ),
                 const SizedBox(height: 12),
-
-                const Text('偏好（爱吃什么）', style: TextStyle(fontWeight: FontWeight.w700)),
+                const Text('Preferences (favorite foods)', style: TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _prefCtrl,
                   maxLines: 3,
-                  decoration: const InputDecoration(border: OutlineInputBorder(), hintText: '例如：三文鱼口味、湿粮…'),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'e.g., salmon flavor, wet food…',
+                  ),
                 ),
                 const SizedBox(height: 12),
-
-                const Text('禁忌（不希望喂的）', style: TextStyle(fontWeight: FontWeight.w700)),
+                const Text('Avoid (do not feed)', style: TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: _avoidCtrl,
                   maxLines: 3,
-                  decoration: const InputDecoration(border: OutlineInputBorder(), hintText: '例如：高盐零食、骨头…'),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'e.g., salty snacks, bones…',
+                  ),
                 ),
               ],
             ),
@@ -100,7 +107,7 @@ class _AllergyPrefModalState extends State<AllergyPrefModal> {
                 child: FilledButton.icon(
                   onPressed: _save,
                   icon: const Icon(Icons.save_outlined),
-                  label: const Text('保存'),
+                  label: const Text('Save'),
                 ),
               ),
             ],

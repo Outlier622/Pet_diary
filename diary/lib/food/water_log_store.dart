@@ -4,7 +4,7 @@ import '../db/timeline_dao.dart';
 class WaterLogItem {
   final String id;
   final int dateMs;
-  final String amount; // e.g. 200ml（可空）
+  final String amount;
   final String note;
 
   WaterLogItem({

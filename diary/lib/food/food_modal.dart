@@ -21,33 +21,33 @@ class FoodModal extends StatelessWidget {
         children: [
           _Entry(
             icon: Icons.restaurant_outlined,
-            title: '喂食记录',
+            title: 'Feeding Logs',
             onTap: () {
               CenterModal.show(
                 context,
-                title: '喂食记录',
+                title: 'Feeding Logs',
                 child: const FeedLogModal(),
               );
             },
           ),
           _Entry(
             icon: Icons.water_drop_outlined,
-            title: '饮水记录',
+            title: 'Water Intake',
             onTap: () {
               CenterModal.show(
                 context,
-                title: '饮水记录',
+                title: 'Water Intake',
                 child: const WaterLogModal(),
               );
             },
           ),
           _Entry(
             icon: Icons.favorite_border,
-            title: '过敏与偏好',
+            title: 'Allergies & Preferences',
             onTap: () {
               CenterModal.show(
                 context,
-                title: '过敏与偏好',
+                title: 'Allergies & Preferences',
                 child: const AllergyPrefModal(),
               );
             },
@@ -87,7 +87,10 @@ class _Entry extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),

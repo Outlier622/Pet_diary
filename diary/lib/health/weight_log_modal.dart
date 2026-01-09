@@ -59,11 +59,11 @@ class _WeightLogModalState extends State<WeightLogModal> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('删除记录？'),
-        content: const Text('此操作不可撤销。'),
+        title: const Text('Delete this entry?'),
+        content: const Text('This action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -86,28 +86,45 @@ class _WeightLogModalState extends State<WeightLogModal> {
         children: [
           Row(
             children: [
-              Expanded(child: Text('记录数：${_items.length}', style: const TextStyle(fontWeight: FontWeight.w600))),
-              FilledButton.icon(onPressed: _add, icon: const Icon(Icons.add), label: const Text('添加')),
+              Expanded(
+                child: Text(
+                  'Entries: ${_items.length}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _add,
+                icon: const Icon(Icons.add),
+                label: const Text('Add'),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Expanded(
             child: _items.isEmpty
-                ? const Center(child: Text('暂无体重记录\n点击右上角“添加”创建', textAlign: TextAlign.center))
+                ? const Center(
+                    child: Text(
+                      'No weight entries yet.\nTap "Add" to create your first one.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
                 : ListView.separated(
                     itemCount: _items.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (_, i) {
                       final it = _items[i];
                       final sub = [
-                        '体重：${it.weightKg.toStringAsFixed(2)} kg',
-                        if (it.note.isNotEmpty) '备注：${it.note}',
+                        'Weight: ${it.weightKg.toStringAsFixed(2)} kg',
+                        if (it.note.isNotEmpty) 'Note: ${it.note}',
                       ].join(' · ');
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                         title: Text(_fmtDate(it.date), style: const TextStyle(fontWeight: FontWeight.w700)),
                         subtitle: Text(sub),
-                        trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _delete(it.id)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _delete(it.id),
+                        ),
                       );
                     },
                   ),
@@ -166,13 +183,13 @@ class _AddDialogState extends State<_AddDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('添加体重记录'),
+      title: const Text('Add Weight Entry'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              const Text('日期：'),
+              const Text('Date:'),
               const SizedBox(width: 8),
               OutlinedButton(onPressed: _pickDate, child: Text(_fmt(_date))),
             ],
@@ -182,7 +199,7 @@ class _AddDialogState extends State<_AddDialog> {
             controller: _kgCtrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
-              labelText: '体重（kg）',
+              labelText: 'Weight (kg)',
               border: OutlineInputBorder(),
             ),
           ),
@@ -191,26 +208,26 @@ class _AddDialogState extends State<_AddDialog> {
             controller: _noteCtrl,
             maxLines: 2,
             decoration: const InputDecoration(
-              labelText: '备注（可选）',
+              labelText: 'Note (optional)',
               border: OutlineInputBorder(),
             ),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () {
             final w = double.tryParse(_kgCtrl.text.trim());
             if (w == null || w <= 0) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('请输入有效体重'), duration: Duration(seconds: 1)),
+                const SnackBar(content: Text('Please enter a valid weight.'), duration: Duration(seconds: 1)),
               );
               return;
             }
             Navigator.pop(context, _Draft(_date, w, _noteCtrl.text));
           },
-          child: const Text('保存'),
+          child: const Text('Save'),
         ),
       ],
     );

@@ -15,40 +15,40 @@ class HygieneModal extends StatelessWidget {
       children: [
         _Entry(
           icon: Icons.shower_outlined,
-          title: '洗澡记录',
+          title: 'Bath Logs',
           onTap: () {
             CenterModal.show(
               context,
-              title: '洗澡记录',
+              title: 'Bath Logs',
               child: const BathLogModal(),
             );
           },
         ),
         _Entry(
           icon: Icons.brush_outlined,
-          title: '梳毛与清洁',
+          title: 'Grooming',
           onTap: () {
             CenterModal.show(
               context,
-              title: '梳毛与清洁',
+              title: 'Grooming',
               child: const GroomLogModal(),
             );
           },
         ),
         _Entry(
           icon: Icons.bug_report_outlined,
-          title: '驱虫记录',
+          title: 'Deworming Logs',
           onTap: () {
             CenterModal.show(
               context,
-              title: '驱虫记录',
+              title: 'Deworming Logs',
               child: const DewormLogModal(),
             );
           },
         ),
         _Entry(
           icon: Icons.alarm_outlined,
-          title: '清洁提醒',
+          title: 'Cleaning Reminders',
           onTap: () => _openCleanReminderBottomSheet(context),
         ),
       ],

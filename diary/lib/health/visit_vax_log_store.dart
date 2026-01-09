@@ -1,10 +1,17 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../db/timeline_dao.dart';
+
 enum VisitVaxType { visit, vaccine }
 
-String vvTypeToText(VisitVaxType t) => t == VisitVaxType.visit ? '就医' : '疫苗';
-VisitVaxType vvTypeFromText(String s) => (s == '疫苗') ? VisitVaxType.vaccine : VisitVaxType.visit;
+String vvTypeToText(VisitVaxType t) => t == VisitVaxType.visit ? 'Vet Visit' : 'Vaccine';
+
+VisitVaxType vvTypeFromText(String s) {
+  final v = s.trim();
+  if (v == 'Vaccine' || v == '疫苗') return VisitVaxType.vaccine;
+  // default: visit (also supports legacy "就医")
+  return VisitVaxType.visit;
+}
 
 class VisitVaxLogItem {
   final String id;
@@ -34,7 +41,7 @@ class VisitVaxLogItem {
   static VisitVaxLogItem fromJson(Map<String, dynamic> m) => VisitVaxLogItem(
         id: (m['id'] ?? '').toString(),
         dateMs: (m['dateMs'] is int) ? m['dateMs'] as int : int.parse(m['dateMs'].toString()),
-        type: vvTypeFromText((m['type'] ?? '就医').toString()),
+        type: vvTypeFromText((m['type'] ?? 'Vet Visit').toString()),
         title: (m['title'] ?? '').toString(),
         note: (m['note'] ?? '').toString(),
       );

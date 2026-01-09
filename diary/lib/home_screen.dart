@@ -28,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final _picker = ImagePicker();
   File? _bgFile;
 
-  // 点击空白区域隐藏/恢复 UI
   bool _uiHidden = false;
 
   static const String _baseUrl = "http://10.12.0.109:5000";
@@ -40,7 +39,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadSavedBackground();
   }
 
-  // 长按中心区域：选择背景 + 持久化 +（可选）识别
   Future<void> _pickAndPersistBackground() async {
     try {
       final XFile? x = await _picker.pickImage(
@@ -65,10 +63,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() => _bgFile = saved);
 
-      _snack('背景已更新');
+      _snack('Background updated');
     } catch (e) {
       if (!mounted) return;
-      _snack('选择/保存失败：$e');
+      _snack('Failed to save background: $e');
     }
   }
 
@@ -81,15 +79,14 @@ class _HomeScreenState extends State<HomeScreen> {
       final breed = (info['breed'] ?? '').toString();
       final conf = (info['confidence'] ?? '').toString();
 
-      _snack("识别结果：$animal · $breed（$conf%）");
+      _snack("Result: $animal · $breed ($conf%)");
     } catch (e) {
       if (!mounted) return;
-      _snack("识别失败：$e");
+      _snack("Classification failed: $e");
     }
   }
 
   Future<Map<String, dynamic>> _uploadAndClassifyBackground(File file) async {
-    // 用你现成后端 route：/breed（返回 animal/breed/confidence）
     final uri = Uri.parse("$_baseUrl/breed");
 
     final req = http.MultipartRequest('POST', uri);
@@ -136,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     setState(() => _bgFile = null);
 
-    _snack('已恢复默认背景');
+    _snack('Restored default background');
   }
 
   void _snack(String text) {
@@ -162,20 +159,14 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // 背景永远显示
             Positioned.fill(
               child: _bgFile == null
                   ? const ColoredBox(color: Color(0xFFBDBDBD))
                   : Image.file(_bgFile!, fit: BoxFit.cover),
             ),
-
-            // 遮罩永远显示（你也可以选择：隐藏 UI 时不加遮罩）
             Positioned.fill(
               child: ColoredBox(color: Colors.black.withOpacity(0.18)),
             ),
-
-            // 关键：点击空白区域切换隐藏/恢复
-            // 注意：把它放在“所有按钮/UI 下面”，这样按钮会先吃掉手势，不会误触隐藏
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
@@ -183,10 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: const SizedBox.expand(),
               ),
             ),
-
-            // ======= UI 层：只有在 _uiHidden == false 时显示 =======
             if (!_uiHidden) ...[
-              // 中央区域（点击进详情；长按选背景）
               Align(
                 alignment: Alignment.center,
                 child: _CenterPetArea(
@@ -194,76 +182,73 @@ class _HomeScreenState extends State<HomeScreen> {
                   onOpenProfile: _openPetProfile,
                 ),
               ),
-
-              // 四周按钮
               EdgeButtons(
                 onHygiene: () {
                   QuickPanel.show(
                     context,
-                    title: '卫生管理',
+                    title: 'Hygiene',
                     child: const HygieneModal(),
                   );
                 },
                 onFood: () {
                   QuickPanel.show(
                     context,
-                    title: '饮食管理',
+                    title: 'Nutrition',
                     child: const FoodModal(),
                   );
                 },
                 onHealth: () {
                   QuickPanel.show(
                     context,
-                    title: '健康状态',
+                    title: 'Health',
                     child: const HealthModal(),
                   );
                 },
                 onAlbum: () {
                   QuickPanel.show(
                     context,
-                    title: '成长相册',
+                    title: 'Album',
                     child: const AlbumModal(),
                   );
                 },
               ),
-
-              // 底部“恢复默认”按钮（你之前要求删除“选择背景”）
-Align(
-  alignment: Alignment.bottomCenter,
-  child: SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.only(bottom: 110),
-      child: Material( // 关键：Material 只包内容
-        color: Colors.transparent,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            OutlinedButton(
-              onPressed: _clearBackground,
-              child: const Text('恢复默认'),
-            ),
-            const SizedBox(height: 10),
-            FilledButton.tonal(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TimelineReadonlyPage()),
-                );
-              },
-              child: const Text('SQLite Timeline（只读）'),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '提示：点击空白区域可隐藏/恢复 UI',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    ),
-  ),
-),
-
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 110),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          OutlinedButton(
+                            onPressed: _clearBackground,
+                            child: const Text('Restore Default'),
+                          ),
+                          const SizedBox(height: 10),
+                          FilledButton.tonal(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const TimelineReadonlyPage(),
+                                ),
+                              );
+                            },
+                            child: const Text('SQLite Timeline (Read-Only)'),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Tip: Tap empty space to hide/show the UI',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ],
         ),
@@ -273,8 +258,8 @@ Align(
 }
 
 class _CenterPetArea extends StatefulWidget {
-  final VoidCallback onPickBackground; // 长按
-  final VoidCallback onOpenProfile; // 点击
+  final VoidCallback onPickBackground;
+  final VoidCallback onOpenProfile;
 
   const _CenterPetArea({
     required this.onPickBackground,
@@ -316,12 +301,12 @@ class _CenterPetAreaState extends State<_CenterPetArea> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '🐾 宠物区域',
+                '🐾 Pet Area',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               SizedBox(height: 8),
               Text(
-                '点击：进入详情\n长按：选择背景',
+                'Tap to open profile\nLong-press to choose a background',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, height: 1.3),
               ),

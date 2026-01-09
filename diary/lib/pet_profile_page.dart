@@ -17,11 +17,10 @@ class PetProfilePage extends StatelessWidget {
     final showBreed = (breedText != null && breedText!.trim().isNotEmpty);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('宠物详情')),
+      appBar: AppBar(title: const Text('Pet Profile')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 顶部卡片：背景预览
           Container(
             height: 180,
             decoration: BoxDecoration(
@@ -37,7 +36,7 @@ class PetProfilePage extends StatelessWidget {
             child: !hasBg
                 ? const Center(
                     child: Text(
-                      '尚未设置背景图\n回到主页长按“宠物区域”选择背景',
+                      'No background image set yet.\nGo back to the home screen and long-press the pet area to choose one.',
                       textAlign: TextAlign.center,
                     ),
                   )
@@ -46,7 +45,6 @@ class PetProfilePage extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          // 识别结果
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -59,7 +57,9 @@ class PetProfilePage extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      showBreed ? (breedText!) : '尚未识别到品种（你可以先不管）',
+                      showBreed
+                          ? breedText!
+                          : 'Breed not identified yet.',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -73,50 +73,49 @@ class PetProfilePage extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          // 下面做“信息架构占位”：以后你再把具体记录页面接进来
           const Text(
-            '功能入口（占位）',
+            'Features',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 10),
 
           _EntryTile(
             icon: Icons.shower_outlined,
-            title: '卫生管理',
-            subtitle: '洗澡 / 梳毛清洁 / 驱虫 / 清洁提醒',
+            title: 'Hygiene',
+            subtitle: 'Bathing, grooming, parasite control, and reminders',
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('卫生管理：后面再接入')),
+                const SnackBar(content: Text('Hygiene feature coming soon')),
               );
             },
           ),
           _EntryTile(
             icon: Icons.restaurant_outlined,
-            title: '饮食管理',
-            subtitle: '饮食记录 / 过敏与偏好等',
+            title: 'Nutrition',
+            subtitle: 'Diet logs, allergies, and preferences',
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('饮食管理：后面再接入')),
+                const SnackBar(content: Text('Nutrition feature coming soon')),
               );
             },
           ),
           _EntryTile(
             icon: Icons.favorite_border,
-            title: '健康状态',
-            subtitle: '体重 / 症状 / 用药等（后面做）',
+            title: 'Health',
+            subtitle: 'Weight, symptoms, and medication tracking',
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('健康状态：后面再做')),
+                const SnackBar(content: Text('Health feature coming soon')),
               );
             },
           ),
           _EntryTile(
             icon: Icons.photo_library_outlined,
-            title: '成长相册',
-            subtitle: '时间轴展示（后面做）',
+            title: 'Growth Album',
+            subtitle: 'Timeline-based photo records',
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('成长相册：后面再做')),
+                const SnackBar(content: Text('Album feature coming soon')),
               );
             },
           ),

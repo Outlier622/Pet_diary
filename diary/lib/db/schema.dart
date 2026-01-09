@@ -2,7 +2,7 @@ class DbSchema {
   static const String dbName = 'pet_growth_diary.db';
   static const int dbVersion = 1;
 
-  // ---- table: pets ----
+  // pets
   static const String tPets = 'pets';
   static const String pId = 'id';
   static const String pName = 'name';
@@ -11,7 +11,7 @@ class DbSchema {
   static const String pCreatedAt = 'createdAt';
   static const String pUpdatedAt = 'updatedAt';
 
-  // ---- table: timeline_events ----
+  // timeline_events
   static const String tEvents = 'timeline_events';
   static const String eId = 'id';
   static const String ePetId = 'petId';
@@ -21,12 +21,12 @@ class DbSchema {
   static const String eSyncStatus = 'syncStatus'; 
   static const String eUpdatedAt = 'updatedAt';
 
-  // ---- sync status values ----
+  // sync status values
   static const int syncPending = 0;
   static const int syncSynced = 1;
   static const int syncFailed = 2;
 
-  // ---- SQL: create tables ----
+  // create tables
   static const String createPetsTable = '''
 CREATE TABLE $tPets (
   $pId TEXT PRIMARY KEY,
@@ -50,7 +50,7 @@ CREATE TABLE $tEvents (
 )
 ''';
 
-  // ---- SQL: indexes ----
+  // indexes
   static const String idxEventsPetTime = '''
 CREATE INDEX idx_events_pet_time
 ON $tEvents($ePetId, $eOccurredAt DESC)

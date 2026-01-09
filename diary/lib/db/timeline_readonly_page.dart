@@ -1,4 +1,3 @@
-// lib/db/timeline_readonly_page.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
@@ -19,14 +18,11 @@ class _TimelineReadonlyPageState extends State<TimelineReadonlyPage> {
 
   bool _loading = true;
   String _log = 'Ready.';
-
   _Range _range = _Range.all;
 
-  // 上半段统计
   int _total = 0;
   List<_TypeCount> _typeCounts = [];
 
-  // 下半段列表
   List<_EventRow> _rows = [];
 
   @override
@@ -72,8 +68,6 @@ class _TimelineReadonlyPageState extends State<TimelineReadonlyPage> {
       final start = _rangeStart(_range);
       final startIso = start?.toIso8601String();
 
-      // --- 上半段：统计 ---
-      // 总数
       final totalRows = await db.rawQuery(
         startIso == null
             ? '''
@@ -91,7 +85,6 @@ WHERE ${DbSchema.ePetId} = ?
       );
       final total = (totalRows.first['c'] as int?) ?? 0;
 
-      // 按 type 计数
       final typeRows = await db.rawQuery(
         startIso == null
             ? '''
@@ -119,7 +112,6 @@ ORDER BY c DESC
               ))
           .toList();
 
-      // --- 下半段：列表 ---
       final list = await db.query(
         DbSchema.tEvents,
         columns: [
@@ -202,7 +194,6 @@ ORDER BY c DESC
       appBar: AppBar(
         title: const Text('SQLite Timeline (Read-only)'),
         actions: [
-          // 时间窗口切换（只读展示用）
           PopupMenuButton<_Range>(
             tooltip: 'Range',
             initialValue: _range,
@@ -210,14 +201,19 @@ ORDER BY c DESC
               setState(() => _range = r);
               await _reload();
             },
-            itemBuilder: (_) => [
+            itemBuilder: (_) => const [
               PopupMenuItem(value: _Range.all, child: Text('All')),
               PopupMenuItem(value: _Range.days30, child: Text('Last 30 days')),
               PopupMenuItem(value: _Range.days7, child: Text('Last 7 days')),
             ],
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Center(child: Text(rangeText, style: const TextStyle(fontWeight: FontWeight.w600))),
+              child: Center(
+                child: Text(
+                  rangeText,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
             ),
           ),
           IconButton(
@@ -235,9 +231,6 @@ ORDER BY c DESC
             Text('Log: $_log'),
             const SizedBox(height: 12),
 
-            // =========================
-            // 上半段：Overview
-            // =========================
             _OverviewCard(
               loading: _loading,
               total: _total,
@@ -247,16 +240,13 @@ ORDER BY c DESC
 
             const SizedBox(height: 12),
 
-            // =========================
-            // 下半段：Timeline list
-            // =========================
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _rows.isEmpty
                       ? const Center(
                           child: Text(
-                            '这个时间窗口下 SQLite 里没有 events。\n你可以先用 migrate 工具或 demo 写入一些数据。',
+                            'No events found in this range.\nAdd some data first (e.g., via demo writes or migration).',
                             textAlign: TextAlign.center,
                           ),
                         )
@@ -320,7 +310,7 @@ class _OverviewCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 if (typeCounts.isEmpty)
-                  const Text('No types in this range.')
+                  const Text('No event types in this range.')
                 else
                   Wrap(
                     spacing: 10,
@@ -417,7 +407,6 @@ class _EventRow {
 
 class _EventCard extends StatelessWidget {
   final _EventRow row;
-  final String Reminder;
   final String Function(DateTime) fmt;
   final IconData Function(String type) iconForType;
 
@@ -425,7 +414,7 @@ class _EventCard extends StatelessWidget {
     required this.row,
     required this.fmt,
     required this.iconForType,
-  }) : Reminder = '';
+  });
 
   String _titleForType(String t) {
     switch (t) {
@@ -450,7 +439,7 @@ class _EventCard extends StatelessWidget {
       case 'clean_reminder':
         return 'Clean Reminder';
       case 'allergy_pref':
-        return 'Allergy Preference';
+        return 'Allergy & Preferences';
       default:
         return t;
     }
@@ -471,17 +460,21 @@ class _EventCard extends StatelessWidget {
         final note = pick('note');
         return [if (amount.isNotEmpty) amount, if (note.isNotEmpty) note].join(' | ');
       case 'weight':
-        // 你的 weight payload 里字段名可能不是 weightKg，这里先尽力兼容
         final kg = pick('weightKg');
         final w = kg.isNotEmpty ? kg : pick('weight');
         final note = pick('note');
-        return [if (w.isNotEmpty) '$w', if (note.isNotEmpty) note].join(' | ');
+        return [if (w.isNotEmpty) w, if (note.isNotEmpty) note].join(' | ');
       case 'med':
-        final name = pick('name');
-        final dose = pick('dose');
+        final name = pick('medName');
+        final dosage = pick('dosage');
+        final schedule = pick('schedule');
         final note = pick('note');
-        return [if (name.isNotEmpty) name, if (dose.isNotEmpty) dose, if (note.isNotEmpty) note]
-            .join(' | ');
+        return [
+          if (name.isNotEmpty) name,
+          if (dosage.isNotEmpty) dosage,
+          if (schedule.isNotEmpty) schedule,
+          if (note.isNotEmpty) note,
+        ].join(' | ');
       case 'album':
         final note = pick('note');
         final img = pick('imagePath');
@@ -532,7 +525,11 @@ class _EventCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     'id=${row.id}',
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.black54),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: Colors.black54,
+                    ),
                   ),
                 ],
               ),

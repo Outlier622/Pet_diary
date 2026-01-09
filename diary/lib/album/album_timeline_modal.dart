@@ -86,17 +86,16 @@ class _AlbumTimelineModalState extends State<AlbumTimelineModal> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('删除这条相册记录？'),
-        content: const Text('图片文件也会一并删除。'),
+        title: const Text('Delete this entry?'),
+        content: const Text('The image file will also be deleted.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
     if (ok != true) return;
 
-    // 删除文件（尽力而为）
     try {
       final f = File(it.imagePath);
       if (await f.exists()) await f.delete();
@@ -119,14 +118,28 @@ class _AlbumTimelineModalState extends State<AlbumTimelineModal> {
         children: [
           Row(
             children: [
-              Expanded(child: Text('记录数：${_items.length}', style: const TextStyle(fontWeight: FontWeight.w600))),
-              FilledButton.icon(onPressed: _add, icon: const Icon(Icons.add), label: const Text('添加')),
+              Expanded(
+                child: Text(
+                  'Entries: ${_items.length}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _add,
+                icon: const Icon(Icons.add),
+                label: const Text('Add'),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Expanded(
             child: _items.isEmpty
-                ? const Center(child: Text('暂无相册记录\n点击右上角“添加”创建', textAlign: TextAlign.center))
+                ? const Center(
+                    child: Text(
+                      'No album entries yet.\nTap "Add" to create your first one.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
                 : ListView.builder(
                     itemCount: _items.length,
                     itemBuilder: (_, i) => _TimelineCard(
@@ -160,7 +173,6 @@ class _TimelineCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 左侧时间轴
           SizedBox(
             width: 22,
             child: Column(
@@ -178,8 +190,6 @@ class _TimelineCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-
-          // 右侧内容卡
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -197,7 +207,7 @@ class _TimelineCard extends StatelessWidget {
                       IconButton(
                         onPressed: () => onDelete(item),
                         icon: const Icon(Icons.delete_outline),
-                        tooltip: '删除',
+                        tooltip: 'Delete',
                       ),
                     ],
                   ),
@@ -211,7 +221,7 @@ class _TimelineCard extends StatelessWidget {
                         errorBuilder: (_, __, ___) => Container(
                           color: Colors.black12,
                           alignment: Alignment.center,
-                          child: const Text('图片无法加载'),
+                          child: const Text('Unable to load image'),
                         ),
                       ),
                     ),
@@ -275,13 +285,13 @@ class _AddDialogState extends State<_AddDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('新增相册记录'),
+      title: const Text('New Album Entry'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              const Text('日期：'),
+              const Text('Date:'),
               const SizedBox(width: 8),
               OutlinedButton(onPressed: _pickDate, child: Text(_fmt(_date))),
             ],
@@ -291,22 +301,25 @@ class _AddDialogState extends State<_AddDialog> {
             controller: _noteCtrl,
             maxLines: 3,
             decoration: const InputDecoration(
-              labelText: '备注（可选）',
+              labelText: 'Note (optional)',
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 10),
           const Align(
             alignment: Alignment.centerLeft,
-            child: Text('下一步会让你选择一张图片。', style: TextStyle(color: Colors.black54)),
+            child: Text(
+              'Next, you will choose an image.',
+              style: TextStyle(color: Colors.black54),
+            ),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () => Navigator.pop(context, _Draft(_date, _noteCtrl.text)),
-          child: const Text('继续选图'),
+          child: const Text('Choose Image'),
         ),
       ],
     );

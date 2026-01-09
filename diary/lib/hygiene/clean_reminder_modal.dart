@@ -22,7 +22,6 @@ class _CleanReminderModalState extends State<CleanReminderModal> {
 
   Future<void> _init() async {
     try {
-      // 先加载本地数据，避免真机一直转圈
       final list = await CleanReminderStore.load();
       if (!mounted) return;
       setState(() {
@@ -30,10 +29,7 @@ class _CleanReminderModalState extends State<CleanReminderModal> {
         _loading = false;
       });
 
-      // 通知服务后台初始化，避免卡 UI
-      await CleanReminderService.instance
-          .init()
-          .timeout(const Duration(seconds: 6));
+      await CleanReminderService.instance.init().timeout(const Duration(seconds: 6));
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -48,8 +44,8 @@ class _CleanReminderModalState extends State<CleanReminderModal> {
   }
 
   Future<void> _applySchedule(CleanReminder r) async {
-    final title = '清洁提醒';
-    final body = r.note.isEmpty ? '该给宠物做清洁啦' : r.note;
+    final title = 'Cleaning Reminder';
+    final body = r.note.isEmpty ? 'Time to clean your pet.' : r.note;
 
     if (r.type == CleanReminderType.once) {
       if (r.onceDateMs == null) return;
@@ -106,20 +102,20 @@ class _CleanReminderModalState extends State<CleanReminderModal> {
 
   String _weekdayText(List<int> wds) {
     const map = {
-      1: '周一',
-      2: '周二',
-      3: '周三',
-      4: '周四',
-      5: '周五',
-      6: '周六',
-      7: '周日'
+      1: 'Mon',
+      2: 'Tue',
+      3: 'Wed',
+      4: 'Thu',
+      5: 'Fri',
+      6: 'Sat',
+      7: 'Sun',
     };
     final s = [...wds]..sort();
     return s.map((e) => map[e] ?? e.toString()).join(' ');
   }
 
   String _formatNext(DateTime? t) {
-    if (t == null) return '下次：未设置/已过期';
+    if (t == null) return 'Next: not set / expired';
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -131,16 +127,16 @@ class _CleanReminderModalState extends State<CleanReminderModal> {
 
     String prefix;
     if (diffDays == 0) {
-      prefix = '今天';
+      prefix = 'Today';
     } else if (diffDays == 1) {
-      prefix = '明天';
+      prefix = 'Tomorrow';
     } else if (diffDays == 2) {
-      prefix = '后天';
+      prefix = 'In two days';
     } else {
-      prefix = '${t.month}月${t.day}日';
+      prefix = '${t.month}/${t.day}';
     }
 
-    return '下次：$prefix $hh:$mm';
+    return 'Next: $prefix $hh:$mm';
   }
 
   Future<void> _addNew() async {
@@ -166,9 +162,8 @@ class _CleanReminderModalState extends State<CleanReminderModal> {
       ),
     );
 
-    if (result == null) return; // 用户取消，不新增
+    if (result == null) return;
 
-    // 保存 + 排程
     final next = [result, ..._items.where((e) => e.id != result.id)];
     await _saveAll(next);
 
@@ -199,7 +194,6 @@ class _CleanReminderModalState extends State<CleanReminderModal> {
     final next = [updated, ..._items.where((e) => e.id != updated.id)];
     await _saveAll(next);
 
-    // 重新应用通知
     await CleanReminderService.instance.cancelAll(r.allNotifIds());
     await CleanReminderService.instance.cancelAll(updated.allNotifIds());
     if (updated.enabled) {
@@ -208,75 +202,80 @@ class _CleanReminderModalState extends State<CleanReminderModal> {
   }
 
   @override
-Widget build(BuildContext context) {
-  if (_loading) {
-    return const SizedBox(
-      height: 240,
-      child: Center(child: CircularProgressIndicator()),
-    );
-  }
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const SizedBox(
+        height: 240,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-  final h = MediaQuery.of(context).size.height * 0.80;
+    final h = MediaQuery.of(context).size.height * 0.80;
 
-  return SafeArea(
-    child: SizedBox(
-      height: h,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    '清洁提醒',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                FilledButton.icon(
-                  onPressed: _addNew,
-                  icon: const Icon(Icons.add),
-                  label: const Text('新增'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: _items.isEmpty
-                  ? const Center(
-                      child: Text('暂无提醒\n点击右上角新增', textAlign: TextAlign.center),
-                    )
-                  : ListView.separated(
-                      padding: EdgeInsets.zero,
-                      itemCount: _items.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (_, i) {
-                        final r = _items[i];
-                        final line1 = r.type == CleanReminderType.once
-                            ? '仅一次'
-                            : '每周 · ${_weekdayText(r.weekdays)} · ${_time(r.hour, r.minute)}';
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Switch(
-                            value: r.enabled,
-                            onChanged: (v) => _toggle(r, v),
-                          ),
-                          title: Text(line1, style: const TextStyle(fontWeight: FontWeight.w700)),
-                          subtitle: Text(r.note.isEmpty ? '默认文案' : r.note),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => _delete(r),
-                          ),
-                        );
-                      },
+    return SafeArea(
+      child: SizedBox(
+        height: h,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Cleaning Reminders',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                     ),
-            ),
-          ],
+                  ),
+                  FilledButton.icon(
+                    onPressed: _addNew,
+                    icon: const Icon(Icons.add),
+                    label: const Text('New'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: _items.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'No reminders yet.\nTap "New" to create one.',
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: EdgeInsets.zero,
+                        itemCount: _items.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final r = _items[i];
+                          final line1 = r.type == CleanReminderType.once
+                              ? 'One-time'
+                              : 'Weekly · ${_weekdayText(r.weekdays)} · ${_time(r.hour, r.minute)}';
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Switch(
+                              value: r.enabled,
+                              onChanged: (v) => _toggle(r, v),
+                            ),
+                            title: Text(
+                              line1,
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            subtitle: Text(r.note.isEmpty ? 'Default message' : r.note),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _delete(r),
+                            ),
+                            onTap: () => _edit(r),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
-
-
+    );
+  }
 }

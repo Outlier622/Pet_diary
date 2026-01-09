@@ -60,11 +60,11 @@ class _FeedLogModalState extends State<FeedLogModal> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('删除记录？'),
-        content: const Text('此操作不可撤销。'),
+        title: const Text('Delete entry?'),
+        content: const Text('This action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('删除')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
         ],
       ),
     );
@@ -87,30 +87,47 @@ class _FeedLogModalState extends State<FeedLogModal> {
         children: [
           Row(
             children: [
-              Expanded(child: Text('记录数：${_items.length}', style: const TextStyle(fontWeight: FontWeight.w600))),
-              FilledButton.icon(onPressed: _add, icon: const Icon(Icons.add), label: const Text('添加')),
+              Expanded(
+                child: Text(
+                  'Entries: ${_items.length}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _add,
+                icon: const Icon(Icons.add),
+                label: const Text('Add'),
+              ),
             ],
           ),
           const SizedBox(height: 12),
           Expanded(
             child: _items.isEmpty
-                ? const Center(child: Text('暂无喂食记录\n点击右上角“添加”创建', textAlign: TextAlign.center))
+                ? const Center(
+                    child: Text(
+                      'No feeding logs yet.\nTap "Add" to create your first entry.',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
                 : ListView.separated(
                     itemCount: _items.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (_, i) {
                       final it = _items[i];
                       final line2 = [
-                        if (it.food.isNotEmpty) '食物：${it.food}',
-                        if (it.amount.isNotEmpty) '份量：${it.amount}',
-                        if (it.note.isNotEmpty) '备注：${it.note}',
+                        if (it.food.isNotEmpty) 'Food: ${it.food}',
+                        if (it.amount.isNotEmpty) 'Amount: ${it.amount}',
+                        if (it.note.isNotEmpty) 'Note: ${it.note}',
                       ].join(' · ');
 
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                         title: Text(_fmtDate(it.date), style: const TextStyle(fontWeight: FontWeight.w700)),
                         subtitle: line2.isEmpty ? null : Text(line2),
-                        trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _delete(it.id)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _delete(it.id),
+                        ),
                       );
                     },
                   ),
@@ -172,13 +189,13 @@ class _AddDialogState extends State<_AddDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('添加喂食记录'),
+      title: const Text('Add feeding log'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              const Text('日期：'),
+              const Text('Date:'),
               const SizedBox(width: 8),
               OutlinedButton(onPressed: _pickDate, child: Text(_fmt(_date))),
             ],
@@ -186,26 +203,35 @@ class _AddDialogState extends State<_AddDialog> {
           const SizedBox(height: 10),
           TextField(
             controller: _foodCtrl,
-            decoration: const InputDecoration(labelText: '食物/品牌（可选）', border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+              labelText: 'Food / Brand (optional)',
+              border: OutlineInputBorder(),
+            ),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _amountCtrl,
-            decoration: const InputDecoration(labelText: '份量（可选）', border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+              labelText: 'Amount (optional)',
+              border: OutlineInputBorder(),
+            ),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _noteCtrl,
             maxLines: 2,
-            decoration: const InputDecoration(labelText: '备注（可选）', border: OutlineInputBorder()),
+            decoration: const InputDecoration(
+              labelText: 'Note (optional)',
+              border: OutlineInputBorder(),
+            ),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () => Navigator.pop(context, _Draft(_date, _foodCtrl.text, _amountCtrl.text, _noteCtrl.text)),
-          child: const Text('保存'),
+          child: const Text('Save'),
         ),
       ],
     );

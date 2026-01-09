@@ -12,7 +12,7 @@ class AlbumModal extends StatelessWidget {
       child: Column(
         children: [
           const Text(
-            '成长相册',
+            'Photo Album',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 12),
@@ -21,7 +21,7 @@ class AlbumModal extends StatelessWidget {
               onTap: () {
                 CenterModal.show(
                   context,
-                  title: '成长相册（时间轴）',
+                  title: 'Photo Album (Timeline)',
                   child: const AlbumTimelineModal(),
                 );
               },
@@ -37,9 +37,9 @@ class AlbumModal extends StatelessWidget {
                   children: [
                     Icon(Icons.photo_album_outlined, size: 40),
                     SizedBox(height: 10),
-                    Text('时间轴展示', style: TextStyle(fontWeight: FontWeight.w700)),
+                    Text('View Timeline', style: TextStyle(fontWeight: FontWeight.w700)),
                     SizedBox(height: 6),
-                    Text('按日期记录照片与备注', style: TextStyle(color: Colors.black54)),
+                    Text('Browse photos and notes by date', style: TextStyle(color: Colors.black54)),
                   ],
                 ),
               ),
