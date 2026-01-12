@@ -142,3 +142,6 @@ A Flutter-based pet daily-care diary app for tracking routines (food, health, hy
 ```bash
 flutter pub get
 flutter run
+
+### Demo Preview
+![Start Page](This_is_the_interface_of_this_app/Screenshot_20260111212203.jpg)
