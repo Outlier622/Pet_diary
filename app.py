@@ -431,6 +431,51 @@ def upload_form():
     </body>
     </html>
     """
+@app.post("/ui/background-classify")
+@require_public_key
+@limiter.limit("10/second")
+def ui_background_classify():
+    
+    global MODEL_LOADED
+
+    code, msg = _file_guards(request.files)
+    if code:
+        return _bad(code, msg)
+
+    f = request.files["image"]
+    filename, path = _secure_save_file(f)
+
+    animal, conf = predict_single_image(path)
+    if not animal:
+        return _bad(500, "failed to analyze image")
+    MODEL_LOADED = True
+
+    breed, breed_conf = ("Unknown", 0.0)
+    if animal.lower() == "dog":
+        breed, breed_conf = predict_dog_breed(path)
+    elif animal.lower() == "cat":
+        breed, breed_conf = predict_cat_breed(path)
+
+    confidence = float(breed_conf) if breed_conf else float(conf)
+
+    result = {
+        "animal": animal,
+        "breed": breed,
+        "confidence": round(confidence * 100.0, 2),
+        "filename": filename,
+    }
+
+    WRITE_DB = True
+    if WRITE_DB:
+        with sqlite3.connect(DB_FILE) as conn:
+            c = conn.cursor()
+            c.execute("""
+            INSERT INTO records (filename, animal, breed, color, confidence, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (filename, animal, breed, "", float(result["confidence"]), datetime.now().isoformat()))
+            conn.commit()
+
+    return _json(200, result)
 
 @app.post("/classify")
 @require_public_key
