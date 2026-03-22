@@ -1,6 +1,6 @@
 # PetGrowth Diary (diary)
 
-A Flutter-based pet daily-care diary app for tracking routines (food, health, hygiene) with a local SQLite timeline and optional reminders.
+A Flutter-based pet daily-care diary app for tracking routines (food, health, hygiene) with a local PostgreSQL timeline and optional reminders.
 
 ## Features
 
@@ -88,7 +88,7 @@ This project is a deep learning-based system for identifying cat/dog breeds from
   - `/records`: Returns a list of past classification records (animal, breed, color, confidence).
   - Model selection and logging integrated.
 
-- **Local SQLite Storage**  
+- **Local PostgreSQL Storage**  
   Stores all classification results along with timestamp and filename, enabling persistent record retrieval from the front-end.
 
 ### Model Summary
@@ -105,7 +105,7 @@ This project is a deep learning-based system for identifying cat/dog breeds from
 - **Backend**: Flask (Python)
 - **Model**: TensorFlow / Keras (MobileNetV2 architecture)
 - **Frontend**: Flutter (or optional HTML template)
-- **Database**: SQLite
+- **Database**: PostgreSQL
 - **Deployment**: Local or cloud-based Flask server
 
 ### Use Cases
